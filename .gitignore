@@ -8,3 +8,4 @@ coverage/
 !.env.example
 artifacts/
 .vercel
+package-lock.json
