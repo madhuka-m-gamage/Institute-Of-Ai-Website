@@ -1,4 +1,4 @@
-import { handleEvaluateApplicationRequest } from "../_lib/aiHandlers";
+import { handleEvaluateApplicationRequest } from "../_lib/aiHandlers.js";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
