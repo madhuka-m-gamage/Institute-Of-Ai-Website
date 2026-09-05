@@ -1,0 +1,102 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Authenticated user profile and institutional credentials",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Application": {
+      "title": "Application",
+      "description": "Course registration or institutional application submitted by users",
+      "type": "object",
+      "properties": {
+        "applicantName": { "type": "string", "maxLength": 200 },
+        "email": { "type": "string", "maxLength": 200 },
+        "courseId": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["submitted", "reviewing", "accepted", "rejected"] },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["applicantName", "email", "courseId", "userId"]
+    },
+    "ResearchNote": {
+      "title": "ResearchNote",
+      "description": "Personal or collaborative research notes and papers stored by researchers",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 300 },
+        "content": { "type": "string", "maxLength": 10000 },
+        "category": { "type": "string" },
+        "userId": { "type": "string" },
+        "docId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["title", "content", "userId"]
+    },
+    "WorkspaceLog": {
+      "title": "WorkspaceLog",
+      "description": "Log of Google Workspace API actions performed by the user",
+      "type": "object",
+      "properties": {
+        "service": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["service", "action", "userId"]
+    },
+    "EnterpriseInquiry": {
+      "title": "EnterpriseInquiry",
+      "description": "Custom enterprise training and transformation scope requests from organizations",
+      "type": "object",
+      "properties": {
+        "companyName": { "type": "string", "maxLength": 250 },
+        "contactName": { "type": "string", "maxLength": 200 },
+        "workEmail": { "type": "string", "maxLength": 200 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "jobTitle": { "type": "string", "maxLength": 150 },
+        "teamSize": { "type": "string", "maxLength": 100 },
+        "primaryFocus": { "type": "string", "maxLength": 200 },
+        "deliveryFormat": { "type": "string", "maxLength": 100 },
+        "timeline": { "type": "string", "maxLength": 100 },
+        "customRequirements": { "type": "string", "maxLength": 3000 },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["companyName", "contactName", "workEmail", "teamSize"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile collection"
+    },
+    "/applications/{applicationId}": {
+      "schema": { "$ref": "#/entities/Application" },
+      "description": "Submitted course applications"
+    },
+    "/enterpriseInquiries/{inquiryId}": {
+      "schema": { "$ref": "#/entities/EnterpriseInquiry" },
+      "description": "Enterprise training and custom proposal inquiries"
+    },
+    "/researchNotes/{noteId}": {
+      "schema": { "$ref": "#/entities/ResearchNote" },
+      "description": "Research notes saved by authenticated users"
+    },
+    "/workspaceLogs/{logId}": {
+      "schema": { "$ref": "#/entities/WorkspaceLog" },
+      "description": "Activity logs for Google Workspace operations"
+    }
+  }
+}

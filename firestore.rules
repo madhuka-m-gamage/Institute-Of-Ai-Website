@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId);
+    }
+
+    // Applications Collection
+    match /applications/{applicationId} {
+      allow read: if isSignedIn();
+      allow create: if true; // Allow students & applicants to submit enrollment forms
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || request.auth.token.email != null);
+    }
+
+    // Enterprise Inquiries Collection
+    match /enterpriseInquiries/{inquiryId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || request.auth.token.email != null);
+      allow create: if true; // Allow organizations and visitors to submit custom enterprise proposals
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Contact Messages Collection
+    match /contactMessages/{messageId} {
+      allow read: if isSignedIn();
+      allow create: if true; // Allow visitors to submit contact inquiries
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Application Workflows Collection
+    match /application_workflows/{workflowId} {
+      allow read: if isSignedIn();
+      allow create: if true;
+      allow update, delete: if false;
+    }
+
+    // Research Notes Collection
+    match /researchNotes/{noteId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Workspace Logs Collection
+    match /workspaceLogs/{logId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}
