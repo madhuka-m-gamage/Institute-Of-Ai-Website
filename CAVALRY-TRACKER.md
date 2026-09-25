@@ -1,0 +1,79 @@
+# Cavalry Tracker — Institute Of AI Website
+
+- **Tracker file:** `CAVALRY-TRACKER.md` at repo root (findings docs in `docs/cavalry/recon/`)
+- **Vercel project:** not yet confirmed
+- **Detected stack:** frontend React 19 SPA (Vite 6, Tailwind v4, hand-rolled routing), backend/database Firebase Auth + Firestore (enforcement via `firestore.rules`); Vercel serverless functions in `api/` for optional Gemini calls; Express `server.ts` for local dev / `npm start`
+- **Audited ref:** `origin/main` @ `9779fd9` (worktree `worktree001`). Excludes unpushed local commit `19232dc` (role-based access control).
+- **Created:** 2026-09-26 by `cavalry:recon`
+- **Last updated:** 2026-09-26 by `cavalry:recon`
+
+## Phase status
+
+| Phase | Skill | Status | Started | Completed | Notes |
+|---|---|---|---|---|---|
+| 1 | recon | done | 2026-09-26 | 2026-09-26 | 5/5 modules audited; 9 decisions accepted; owner signed off; 2 urgency questions (live rules, sign-up) do not block Fortify |
+| 2 | fortify | not started | — | — | |
+| 3 | charge | not started | — | — | |
+| 4 | regroup | not started | — | — | |
+| 5 | breach | not started | — | — | |
+
+## Recon modules
+
+| # | Module | Findings doc | Status |
+|---|---|---|---|
+| 1 | Server, API & build | `docs/cavalry/recon/01-server-api-build.md` | done (SRV-1..19) |
+| 2 | Firebase rules & data layer | `docs/cavalry/recon/02-firebase-rules-data.md` | done (FB-1..19, DOC-1..5) |
+| 3 | Public site, routing & forms | `docs/cavalry/recon/03-public-site-forms.md` | done (PUB-1..16) |
+| 4 | Admin console | `docs/cavalry/recon/04-admin-console.md` | done (ADM-1..19) |
+| 5 | Google Workspace integration | `docs/cavalry/recon/05-google-workspace.md` | done (GWS-1..17) |
+
+## Resolved decisions
+
+| Decision | Rationale | Made by | Date | Affects |
+|---|---|---|---|---|
+| Audit `origin/main` (9779fd9), not local `main` (19232dc) | Audit what is actually deployed | human, via recon | 2026-09-26 | all |
+| Backend is Vercel hosting + Firebase Auth/Firestore only | Confirmed by owner | human, via recon | 2026-09-26 | all |
+| Admin identity = `users/{uid}.role` enforced in `firestore.rules`; land unpushed commit `19232dc` as the first Charge item (reviewed + rules-tested there, not trusted as-is) | Already written, includes rules test harness + `firebase.json`; fixes FB-1/FB-2/FB-7/FB-9 and part of FB-3/PUB-1/ADM-2/ADM-5 | human, via recon | 2026-09-26 | `firestore.rules`, `firebase.json`, `src/pages/AdminPage.tsx`, `src/components/UserManagementPanel.tsx`, `src/types.ts` |
+| Workspace: remove the Workspace tab (Drive/Docs/Forms/Tasks/Contacts/Calendar) and dead `WorkspaceHubModal`; keep only `gmail.send`, requested incrementally on first send (not at sign-in) | Least privilege; avoids restricted-scope verification (GWS-3, FB-6); keeps decision letters + bulk email | human, via recon | 2026-09-26 | `src/lib/firebase.ts`, `src/services/workspace.ts`, `src/components/WorkspaceAdminPanel.tsx`, `src/components/WorkspaceHubModal.tsx`, `src/pages/AdminPage.tsx` |
+| Remove both Gemini routes (`/api/ai/counselor`, `/api/ai/evaluate-application`) and the AI counselor feature | Eliminates anonymous paid-API exposure (SRV-5/6/13/14/15/16, PUB-6) | human, via recon | 2026-09-26 | `api/ai/**`, `api/_lib/aiHandlers.ts`, `server.ts`, `src/components/AIAssistantModal.tsx`, callers |
+| Remove client write to `application_workflows` (close its rules), drop readiness score + "AI" wording from applicant UI, stop claiming a confirmation email was sent | Forgeable admin feed (PUB-4/FB-4/ADM-6); score is a fixed per-course number (PUB-12); false email claim (PUB D-4). Real confirmation emails → backlog | human, via recon | 2026-09-26 | `src/services/applicationWorkflow.ts`, `src/components/ApplyModal.tsx`, `firestore.rules`, `src/components/RecentActivityPanel.tsx` |
+| Staff sign-in: keep Google + email/password; public Email/Password sign-up must be disabled in the Firebase console (staff accounts admin-created) | Owner's choice; role rules mean non-staff accounts get no data access | human, via recon | 2026-09-26 | `src/lib/firebase.ts`, Firebase console (Breach) |
+| Audit trail: client writes to `adminAuditLogs`, enforced by rules (staff-only create, `actorEmail == request.auth.token.email`, `timestamp == request.time`, no update/delete); remove fabricated seed entries | No server credentials needed (ADM-3, FB-5, GWS-12) | human, via recon | 2026-09-26 | `firestore.rules`, `src/components/AdminAuditTrailPanel.tsx`, audit write call sites |
+| Public-form abuse: rules field/type/size validation + Firebase App Check (reCAPTCHA Enterprise) enforced on Firestore | No new backend (FB-3, PUB-1, PUB-3) | human, via recon | 2026-09-26 | `firestore.rules`, `src/lib/firebase.ts`, `firebase-applet-config.json`, Firebase console (Breach) |
+| Remove Express `server.ts`; plain Vite scripts (`dev: vite`, `build: vite build`, `preview: vite preview`); drop `express`, `dotenv`, `@google/genai`; update CLAUDE.md/README | No server routes remain after Gemini removal (SRV-2, SRV-8, SRV-9, SRV-12, SRV-17) | human, via recon | 2026-09-26 | `server.ts`, `package.json`, `CLAUDE.md`, `README.md` |
+| Default (not asked, override if wrong): add baseline security headers in `vercel.json` (`X-Frame-Options`/`frame-ancestors 'none'`, `X-Content-Type-Options`, `Referrer-Policy`), CSP in report-only first; standardize on npm (delete `bun.lock`) | Standard hardening (SRV-7); docs already say npm (SRV-17) | recon default | 2026-09-26 | `vercel.json`, `bun.lock` |
+
+## Open questions for human
+
+- **[recon, blocking — urgency]** Which `firestore.rules` are actually live on the named Firestore database? origin/main has no `firebase.json`; unpushed commit `19232dc` adds a `deploy:rules` script — has it been run? This decides whether FB-1/FB-2 are live today.
+- **[recon, blocking — urgency]** Is Email/Password sign-up enabled in Firebase Auth? Combined with open Google sign-in, this is how any internet user becomes "admin" under the origin/main rules (FB-1, ADM-1).
+- **[recon, blocking for Breach]** Who are the admins/staff, and do they share a Google Workspace domain? Needed to seed roles (FB-1) and to decide Google-only/domain-restricted sign-in.
+- **[recon, non-blocking]** Review the Firebase Auth user list for non-staff accounts that may already have read applicant PII (possible past exposure).
+- **[recon, non-blocking]** OAuth consent screen: Internal vs External, Testing vs Production, verification status (GWS-3, FB-6).
+- **[recon, non-blocking]** Is `GEMINI_API_KEY` set in Vercel? Is `gemini-3.7-flash` a valid model id? Are the Firebase/Gemini keys restricted in GCP, with a budget alert? (SRV-5, SRV-15, FB-10)
+- **[recon, non-blocking]** Is App Check enabled in the Firebase console? (FB-3, PUB-1)
+- **[recon, non-blocking]** Marketing claims on the public pages (faculty, papers, benchmark numbers, "AES-256-GCM", address, "<24h guarantee") — real or placeholder? (PUB-15)
+- **[recon, non-blocking]** Does anything outside the repo send applicant confirmation emails? The UI says "confirmation sent" but no code sends one (PUB D-4).
+- **[recon, non-blocking]** Expected volume: applications total, and largest bulk email/status batch (500-op Firestore batch limit — ADM-10, GWS-11).
+- **[recon, non-blocking]** Do any existing docs have a non-string name or a Timestamp `createdAt`? Either crashes the admin list/CSV (FB-12, FB-15).
+
+## Follow-up backlog
+
+| Item | File path(s) | Why it matters | Dependencies | Discovered during | Status |
+|---|---|---|---|---|---|
+| **Q1** Land RBAC commit `19232dc` (role rules, public-create validation, `firebase.json`, rules tests); extend it to `contactMessages` validation and close `application_workflows` | `firestore.rules`, `firebase.json`, `.firebaserc`, `scripts/verify-firestore-rules.mjs`, `src/pages/AdminPage.tsx`, `src/components/UserManagementPanel.tsx`, `src/types.ts` | Critical: any signed-in user reads/edits/deletes all applicant PII (FB-1, FB-2, ADM-1, PUB-2); unvalidated public creates (FB-3, PUB-1, ADM-2); client-only admin gating; mock Staff & Roles w/ personal email (ADM-4) | none; Breach must deploy rules + seed first `super_admin` | recon (02, 04) | open |
+| **Q2** Audit trail per decision: `adminAuditLogs` rule, actor/timestamp enforced, remove seed entries, no raw PII in details | `firestore.rules`, `src/components/AdminAuditTrailPanel.tsx`, `src/components/BulkEmailModal.tsx`, `src/pages/AdminPage.tsx` | Audit writes all silently denied; panel shows fabricated data (ADM-3, FB-5, GWS-12, ADM-19) | Q1 (needs `isStaff()`) | recon (02, 04, 05) | open |
+| **Q3** Email header injection: validate/reject recipient addresses (no CR/LF/comma, single RFC 5322 addr) in `sendGmailMessage`; RFC 2047 subject encoding, CRLF line endings, base64 wrapping, filename encoding | `src/services/workspace.ts` | Applicant-controlled email can add Bcc/recipients to mail sent from admin's Gmail (GWS-1, PUB-5, GWS-9) | none | recon (03, 05) | open |
+| **Q4** Scope reduction per decision: only `gmail.send`, requested on first send; remove Workspace tab, `WorkspaceAdminPanel`, `WorkspaceHubModal`, unused workspace.ts functions | `src/lib/firebase.ts`, `src/services/workspace.ts`, `src/components/WorkspaceAdminPanel.tsx`, `src/components/WorkspaceHubModal.tsx`, `src/pages/AdminPage.tsx` | 15 scopes incl. 5 restricted, forced consent (GWS-3, FB-6, GWS-4..7, GWS-14..17) | Q3 touches same file — sequence after | recon (02, 05) | open |
+| **Q5** Bulk email correctness: fix `body`→`bodyText` prop (crash), stabilize selected-apps prop (reset mid-send), per-recipient Firestore update after each send, dedupe, chunk >500, retry-failed-only, 401 reconnect | `src/components/BulkEmailModal.tsx`, `src/components/EmailRichPreview.tsx`, `src/pages/AdminPage.tsx` | Bulk email likely crashes on open (GWS-2, confirmed `BulkEmailModal.tsx:762`); duplicate sends (GWS-10, GWS-11, FB-16, GWS-13) | Q4 | recon (02, 05) | open |
+| **Q6** Remove Gemini routes + AI counselor + Express `server.ts`; plain Vite scripts; drop deps; fix docs | `api/ai/**`, `api/_lib/aiHandlers.ts`, `server.ts`, `src/components/AIAssistantModal.tsx`, `package.json`, `CLAUDE.md`, `README.md` | Anonymous paid-API proxy (SRV-5 etc.); dev/prod drift; `npm start` boots dev (SRV-12) | none | recon (01, 03) | open |
+| **Q7** Remove `application_workflows` client write, readiness score, "AI" wording, "confirmation sent" claim; activity feed stops reading it | `src/services/applicationWorkflow.ts`, `src/components/ApplyModal.tsx`, `src/components/RecentActivityPanel.tsx` | Forgeable admin feed; misleading applicant UI (PUB-4, FB-4, ADM-6, PUB-12, PUB D-4) | Q1 (rules close collection) | recon (03) | open |
+| **Q8** Public forms show success on failure: surface Firestore errors, success only after write; remove PII console logs; use `serverTimestamp()`; disable double-submit; reset modal state on close; fix course preselect | `src/components/ApplyModal.tsx:160-206`, `src/components/EnterpriseContactModal.tsx`, `src/components/EnterpriseInquiryModal.tsx`, `src/pages/ContactPage.tsx` | Applicants told "submitted" when nothing was saved (PUB-8 confirmed, PUB-9, PUB-10, PUB-11, PUB-3) | Q1 (rules must accept `serverTimestamp` createdAt), Q7 | recon (03) | open |
+| **Q9** Admin data robustness: `getCandidateName` must tolerate non-string/"undefined" names; Timestamp-safe dates in CSV/bell/activity; bell ordered `orderBy(createdAt desc).limit(20)`; surface read errors; paginate/limit admin loads | `src/types.ts`, `src/services/csvExport.ts`, `src/components/AdminNotificationBell.tsx`, `src/components/RecentActivityPanel.tsx`, `src/pages/AdminPage.tsx` | One bad public doc hides all applications from admins (FB-12, FB-13, FB-14, FB-15, FB-17, ADM-8, ADM-15, ADM-17) | Q8 (createdAt type change) | recon (02, 04) | open |
+| **Q10** CSV formula injection: prefix `'` for cells starting `= + - @ \t \r`; delete duplicate exporter in AdminPage | `src/services/csvExport.ts`, `src/pages/AdminPage.tsx` | Applicant input executes as formula in admin's spreadsheet (ADM-7) | none | recon (04) | open |
+| **Q11** Bulk status / decision letters: chunk >500, no stale overwrite of notes, letter only for saved status, refresh after send, enterprise-specific letter, stricter course matching in PDFs | `src/components/BulkStatusModal.tsx`, `src/components/ApplicationDetailModal.tsx`, `src/services/pdfDocuments.ts` | Wrong/duplicate official letters; enterprise gets "Co-Sponsorship Awarded" (ADM-10..14) | Q5 | recon (04) | open |
+| **Q12** App Check (reCAPTCHA Enterprise) client init + enforcement | `src/lib/firebase.ts`, `firebase-applet-config.json` | Spam/abuse of public creates (FB-3, FB-10, PUB-1) | Q1; console enforcement in Breach | recon (02, 03) | open |
+| **Q13** Security headers in `vercel.json` (frame-ancestors, nosniff, referrer policy, CSP report-only); npm only (delete `bun.lock`) | `vercel.json`, `bun.lock` | Clickjackable admin (SRV-7); lockfile drift (SRV-17) | Q6 | recon (01) | open |
+| Low-priority cleanup: routing edge cases/404 (PUB-13), modal a11y + `maxLength` (PUB-14), lazy-load AdminPage + drop footer admin link (PUB-7, C-5), hotlinked AI Studio images/favicons (PUB-16, SRV-19), error message PII (FB-11), status enum drift (ADM-16), stale modal state (ADM-18), blueprint drift (DOC-*), package name/metadata (SRV-4) | see findings docs 01–05 | Quality/robustness; none security-critical | after Q1–Q13 | recon | open |
+| Server-side applicant confirmation emails (replacing the removed false claim) | new | Applicants currently get no confirmation | needs a sending backend decision | recon (03) | open |
+| Breach checklist (console, not code): deploy rules; seed `super_admin`; disable public Email/Password sign-up; enforce App Check; restrict Firebase API key; OAuth consent screen scopes; remove `GEMINI_API_KEY` from Vercel; review Auth user list for past exposure | Firebase/GCP/Vercel consoles | Code fixes are inert until live config matches | Q1–Q13 merged | recon | open |
