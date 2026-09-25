@@ -5,14 +5,14 @@
 - **Detected stack:** frontend React 19 SPA (Vite 6, Tailwind v4, hand-rolled routing), backend/database Firebase Auth + Firestore (enforcement via `firestore.rules`); Vercel serverless functions in `api/` for optional Gemini calls; Express `server.ts` for local dev / `npm start`
 - **Audited ref:** `origin/main` @ `9779fd9` (worktree `worktree001`). Excludes unpushed local commit `19232dc` (role-based access control).
 - **Created:** 2026-09-26 by `cavalry:recon`
-- **Last updated:** 2026-09-26 by `cavalry:recon`
+- **Last updated:** 2026-09-26 by `cavalry:fortify`
 
 ## Phase status
 
 | Phase | Skill | Status | Started | Completed | Notes |
 |---|---|---|---|---|---|
 | 1 | recon | done | 2026-09-26 | 2026-09-26 | 5/5 modules audited; 9 decisions accepted; owner signed off; 2 urgency questions (live rules, sign-up) do not block Fortify |
-| 2 | fortify | not started | — | — | |
+| 2 | fortify | done | 2026-09-26 | 2026-09-26 | Vitest + rules emulator harness; 26 unit/component + 17 rules characterization tests, all passing; see "Characterization coverage" |
 | 3 | charge | not started | — | — | |
 | 4 | regroup | not started | — | — | |
 | 5 | breach | not started | — | — | |
@@ -42,6 +42,23 @@
 | Public-form abuse: rules field/type/size validation + Firebase App Check (reCAPTCHA Enterprise) enforced on Firestore | No new backend (FB-3, PUB-1, PUB-3) | human, via recon | 2026-09-26 | `firestore.rules`, `src/lib/firebase.ts`, `firebase-applet-config.json`, Firebase console (Breach) |
 | Remove Express `server.ts`; plain Vite scripts (`dev: vite`, `build: vite build`, `preview: vite preview`); drop `express`, `dotenv`, `@google/genai`; update CLAUDE.md/README | No server routes remain after Gemini removal (SRV-2, SRV-8, SRV-9, SRV-12, SRV-17) | human, via recon | 2026-09-26 | `server.ts`, `package.json`, `CLAUDE.md`, `README.md` |
 | Default (not asked, override if wrong): add baseline security headers in `vercel.json` (`X-Frame-Options`/`frame-ancestors 'none'`, `X-Content-Type-Options`, `Referrer-Policy`), CSP in report-only first; standardize on npm (delete `bun.lock`) | Standard hardening (SRV-7); docs already say npm (SRV-17) | recon default | 2026-09-26 | `vercel.json`, `bun.lock` |
+
+## Characterization coverage (Fortify)
+
+Every test is a *characterization* test: it pins current behavior, including bugs (tests named `BUG ...`). Each `describe` names the finding and the Charge item expected to flip it. When a Charge item lands, update the matching `BUG` assertions to the new intended behavior in the same PR — a `BUG` test that still passes after its fix means the fix didn't take.
+
+**Run:** `npm test` (unit/component, jsdom) · `npm run test:rules` (Firestore emulator via `firebase.test.json`, project `demo-cavalry`, offline; needs Java + firebase CLI). Deps installed with `npm install --no-package-lock` (no lockfile until Q13).
+
+| Test file | Pins | Flips in |
+|---|---|---|
+| `tests/rules/firestore.rules.test.ts` | Any signed-in user reads applications/contact/enterprise PII, updates status, deletes (FB-1/2, ADM-1); unvalidated public create incl. `status:'accepted'` + 100 KB junk (FB-3, ADM-2, PUB-1); anon writes to `application_workflows` (FB-4); `adminAuditLogs` denied for everyone (FB-5, ADM-3); self-assigned `role`, users readable by all (FB-9, ADM-5) | Q1, Q2, Q7 |
+| `tests/characterization/applyModal.test.tsx` | Client-set `status`/`createdAt`/`userId`; second write to `application_workflows`; success screen shown when every write fails (PUB-8); course preselect ignored after mount (PUB-10) | Q7, Q8 |
+| `tests/characterization/gmailMime.test.ts` | CRLF in recipient injects `Bcc:` (GWS-1); comma list passes; unencoded attachment filename (GWS-9); 401 error message | Q3 |
+| `tests/characterization/emailRichPreview.test.tsx` | Renders with `bodyText`; throws `TypeError` with BulkEmailModal's `body` prop (GWS-2) | Q5 |
+| `tests/characterization/types.test.ts` | `getCandidateName` throws on non-string (FB-12), `"undefined"` skips aliases (FB-13); timestamps assume ms, trust future dates (FB-14) | Q9 |
+| `tests/characterization/csvExport.test.ts` | Formula cells (`= + - @`) exported verbatim (ADM-7); Timestamp `createdAt` exported as `[object Object]` — **correction to Recon: it does not crash** (FB-15) | Q9, Q10 |
+
+**Not covered (Charge must write tests first when touching these):** AdminPage client-side auth gating (ADM-1 UI side; the enforcement side is covered by rules tests); BulkEmailModal send loop — reset mid-send, duplicate sends, post-send batch (GWS-10/11, FB-16); BulkStatusModal >500 ops (ADM-10); decision letters + PDFs (ADM-11..14); notification bell / activity feed queries (FB-17, ADM-8, ADM-15). Q4, Q6, Q12, Q13 are deletions/config — nothing behavioral to pin beyond the tests above.
 
 ## Open questions for human
 
@@ -77,3 +94,5 @@
 | Low-priority cleanup: routing edge cases/404 (PUB-13), modal a11y + `maxLength` (PUB-14), lazy-load AdminPage + drop footer admin link (PUB-7, C-5), hotlinked AI Studio images/favicons (PUB-16, SRV-19), error message PII (FB-11), status enum drift (ADM-16), stale modal state (ADM-18), blueprint drift (DOC-*), package name/metadata (SRV-4) | see findings docs 01–05 | Quality/robustness; none security-critical | after Q1–Q13 | recon | open |
 | Server-side applicant confirmation emails (replacing the removed false claim) | new | Applicants currently get no confirmation | needs a sending backend decision | recon (03) | open |
 | Breach checklist (console, not code): deploy rules; seed `super_admin`; disable public Email/Password sign-up; enforce App Check; restrict Firebase API key; OAuth consent screen scopes; remove `GEMINI_API_KEY` from Vercel; review Auth user list for past exposure | Firebase/GCP/Vercel consoles | Code fixes are inert until live config matches | Q1–Q13 merged | recon | open |
+| `npm run lint` does not type-check any React code: `@types/react`/`@types/react-dom` are not installed and `tsconfig.json` is non-strict, so `react` resolves to `any` and wrong/missing JSX props (e.g. GWS-2, `BulkEmailModal.tsx:762`) pass. Add the types (and consider `strict`), then fix the errors that surface | `package.json`, `tsconfig.json`, all `src/**/*.tsx` | The only "lint" gives Charge a false safety net on every UI change | best done early in Charge (before Q5/Q8/Q11) so later items get real type checks; expect a batch of new type errors | fortify | open |
+| Rules tests must be retargeted when Q1 lands: `19232dc` adds its own `scripts/verify-firestore-rules.mjs` + `test:rules` script and a real `firebase.json` — reconcile with `tests/rules/` + `firebase.test.json` (keep one harness) | `package.json`, `tests/rules/`, `firebase.test.json`, `scripts/verify-firestore-rules.mjs` | Avoid two competing rules-test setups and a `test:rules` script merge conflict | Q1 | fortify | open |
