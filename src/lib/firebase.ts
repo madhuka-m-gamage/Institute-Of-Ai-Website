@@ -124,10 +124,15 @@ export const getGmailSendToken = async (): Promise<string> => {
   return token;
 };
 
-export const logout = async () => {
-  await signOut(auth);
+// Called when Gmail rejects the token (revoked or expired early) so the next send asks again.
+export const clearGmailSendToken = () => {
   cachedAccessToken = null;
   cachedAccessTokenExpiresAt = 0;
+};
+
+export const logout = async () => {
+  await signOut(auth);
+  clearGmailSendToken();
 };
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {

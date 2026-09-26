@@ -32,7 +32,7 @@ vi.mock('firebase/auth', () => {
   };
 });
 
-import { googleSignIn, getGmailSendToken, logout } from '../../src/lib/firebase';
+import { googleSignIn, getGmailSendToken, clearGmailSendToken, logout } from '../../src/lib/firebase';
 
 const GMAIL_SEND = 'https://www.googleapis.com/auth/gmail.send';
 const googleUser = { email: 'owner@gmail.com', providerData: [{ providerId: 'google.com' }] };
@@ -79,6 +79,14 @@ describe('Q4: gmail.send is requested incrementally, on first send', () => {
     auth.currentUser = { email: 'staff@x.com', providerData: [{ providerId: 'password' }] };
     await expect(getGmailSendToken()).rejects.toThrow(/Google/);
     expect(reauthenticateWithPopup).not.toHaveBeenCalled();
+  });
+
+  it('asks again after the token is cleared (e.g. Gmail rejected it)', async () => {
+    reauthenticateWithPopup.mockResolvedValue({ token: 't1' });
+    await getGmailSendToken();
+    clearGmailSendToken();
+    await getGmailSendToken();
+    expect(reauthenticateWithPopup).toHaveBeenCalledTimes(2);
   });
 
   it('forgets the token on logout', async () => {
