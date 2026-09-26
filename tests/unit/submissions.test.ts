@@ -4,7 +4,11 @@ const { addDoc, auth } = vi.hoisted(() => ({
   addDoc: vi.fn(),
   auth: { currentUser: null as null | { uid: string } },
 }));
-vi.mock('firebase/firestore', () => ({ collection: (_db: unknown, name: string) => name, addDoc: (...a: unknown[]) => addDoc(...a) }));
+vi.mock('firebase/firestore', () => ({
+  collection: (_db: unknown, name: string) => name,
+  addDoc: (...a: unknown[]) => addDoc(...a),
+  serverTimestamp: () => 'SERVER_TIMESTAMP',
+}));
 vi.mock('../../src/lib/firebase', () => ({ db: {}, auth }));
 
 import { submitApplication, submitEnterpriseInquiry, submitContactMessage } from '../../src/site/services/submissions';
@@ -37,6 +41,13 @@ describe('site submissions — Q8', () => {
     expect(addDoc.mock.calls.map((c) => c[0])).toEqual(['enterpriseInquiries', 'contactMessages']);
     expect(addDoc.mock.calls[0][1]).toMatchObject({ userId: 'guest_enterprise' });
     expect(addDoc.mock.calls[1][1]).toMatchObject({ userId: 'guest_contact' });
+  });
+
+  it('stamps every submission with the server time, not the visitor clock (FB-14, Q9)', async () => {
+    await submitApplication({ name: 'Ada', email: 'ada@x.com', phone: '', courseId: 'c1', courseTitle: 'AI', experience: 'Beginner' });
+    await submitEnterpriseInquiry({ companyName: 'Co', contactName: 'Pat', workEmail: 'p@co.com', teamSize: '15', primaryFocus: 'x', deliveryFormat: 'x', timeline: 'x' });
+    await submitContactMessage({ name: 'Sam', email: 's@x.com', inquiryType: 'academic', message: 'hello there' });
+    expect(addDoc.mock.calls.map((c) => c[1].createdAt)).toEqual(['SERVER_TIMESTAMP', 'SERVER_TIMESTAMP', 'SERVER_TIMESTAMP']);
   });
 
   it('propagates write failures instead of swallowing them', async () => {

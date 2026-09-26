@@ -25,7 +25,7 @@
         "status": { "type": "string", "enum": ["submitted", "under_review", "accepted", "waitlisted", "rejected"] },
         "notes": { "type": "string", "maxLength": 1000 },
         "userId": { "type": "string" },
-        "createdAt": { "type": "string" }
+        "createdAt": { "type": "timestamp", "description": "Server timestamp (serverTimestamp()); older docs may hold an ISO string" }
       },
       "required": ["applicantName", "email", "courseId", "userId"]
     },
@@ -72,7 +72,7 @@
         "timeline": { "type": "string", "maxLength": 100 },
         "customRequirements": { "type": "string", "maxLength": 3000 },
         "userId": { "type": "string" },
-        "createdAt": { "type": "string" }
+        "createdAt": { "type": "timestamp", "description": "Server timestamp (serverTimestamp()); older docs may hold an ISO string" }
       },
       "required": ["companyName", "contactName", "workEmail", "teamSize"]
     }

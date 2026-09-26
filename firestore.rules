@@ -73,6 +73,7 @@ service cloud.firestore {
         && request.resource.data.courseId is string && request.resource.data.courseId.size() <= 100
         && (!('notes' in request.resource.data) || (request.resource.data.notes is string && request.resource.data.notes.size() <= 1000))
         && request.resource.data.status == 'submitted'
+        && request.resource.data.createdAt == request.time
         && request.resource.data.userId is string
         && (request.auth == null ? request.resource.data.userId == 'guest_applicant' : request.resource.data.userId == request.auth.uid);
 
@@ -95,6 +96,7 @@ service cloud.firestore {
         && request.resource.data.workEmail is string && request.resource.data.workEmail.size() <= 200
         && request.resource.data.teamSize is string && request.resource.data.teamSize.size() <= 100
         && (!('customRequirements' in request.resource.data) || (request.resource.data.customRequirements is string && request.resource.data.customRequirements.size() <= 3000))
+        && request.resource.data.createdAt == request.time
         && request.resource.data.userId is string
         && (request.auth == null ? request.resource.data.userId == 'guest_enterprise' : request.resource.data.userId == request.auth.uid);
 
@@ -111,6 +113,7 @@ service cloud.firestore {
         && request.resource.data.email is string && request.resource.data.email.size() <= 200
         && request.resource.data.message is string && request.resource.data.message.size() <= 5000
         && request.resource.data.inquiryType in ['corporate', 'academic', 'research', 'media']
+        && request.resource.data.createdAt == request.time
         && request.resource.data.userId is string
         && (request.auth == null ? request.resource.data.userId == 'guest_contact' : request.resource.data.userId == request.auth.uid);
 

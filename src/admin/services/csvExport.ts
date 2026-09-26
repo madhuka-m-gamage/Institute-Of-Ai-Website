@@ -1,4 +1,4 @@
-import { StudentApplication, getCandidateName } from '../../types';
+import { StudentApplication, getCandidateName, toMillis } from '../../types';
 
 export interface CsvExportOptions {
   filename?: string;
@@ -21,17 +21,11 @@ export function escapeCsvCell(value: any): string {
 }
 
 /**
- * Format ISO or arbitrary date string into human readable UTC/local format
+ * Format a Firestore Timestamp, epoch number or date string as UTC "YYYY-MM-DD HH:MM:SS" (blank if unusable)
  */
-export function formatCsvDate(dateStr?: string): string {
-  if (!dateStr) return '';
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toISOString().replace('T', ' ').substring(0, 19);
-  } catch {
-    return dateStr || '';
-  }
+export function formatCsvDate(value?: unknown): string {
+  const ms = toMillis(value);
+  return ms ? new Date(ms).toISOString().replace('T', ' ').substring(0, 19) : '';
 }
 
 /**

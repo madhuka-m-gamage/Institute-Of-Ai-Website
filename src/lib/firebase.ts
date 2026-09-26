@@ -43,7 +43,8 @@ export interface FirestoreErrorInfo {
 }
 
 export const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const FIRESTORE_DATABASE_ID = firebaseConfig.firestoreDatabaseId;
+export const db = getFirestore(app, FIRESTORE_DATABASE_ID);
 export const auth = getAuth(app);
 
 // Sign-in asks for identity only; Gmail access is requested separately when an admin first sends mail.

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../lib/firebase';
-import { collection, onSnapshot, query, orderBy, limit, doc, updateDoc, writeBatch } from 'firebase/firestore';
-import { AdminNotification } from '../../types';
+import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { AdminNotification, getCandidateName, getApplicationTimestamp } from '../../types';
 import {
   Bell,
   BellRing,
@@ -32,93 +32,63 @@ export const AdminNotificationBell: React.FC<AdminNotificationBellProps> = ({
   const [filterType, setFilterType] = useState<string>('all');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
-  // Real-time listener for Firestore Collections (applications, enterpriseInquiries, contactMessages)
+  // Live listeners on the newest submissions. Documents already present when the listener attaches are
+  // shown as read; only ones that arrive afterwards count towards the unread badge.
   useEffect(() => {
-    // 1. Listen to applications
-    const qApps = query(collection(db, 'applications'), limit(20));
-    const unsubApps = onSnapshot(qApps, (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added') {
-          const data = change.doc.data();
-          // Check if this was created recently or from normal collection fetch
-          const createdAt = data.createdAt || new Date().toISOString();
-          const newNotif: AdminNotification = {
-            id: `notif-app-${change.doc.id}`,
-            type: 'application',
-            title: `New Student Application: ${data.fullName || 'Candidate'}`,
-            message: `Applied for ${data.courseTitle || 'Executive Track'} • ${data.email || ''}`,
-            timestamp: createdAt,
-            read: false,
-            sourceId: change.doc.id,
-            data: { ...data, id: change.doc.id },
-          };
-
+    const listen = (
+      collectionName: string,
+      type: AdminNotification['type'],
+      describe: (data: any) => { title: string; message: string }
+    ) => {
+      let initialLoad = true;
+      return onSnapshot(
+        query(collection(db, collectionName), orderBy('createdAt', 'desc'), limit(20)),
+        (snapshot) => {
+          const read = initialLoad;
+          initialLoad = false;
+          const fresh: AdminNotification[] = snapshot
+            .docChanges()
+            .filter((change) => change.type === 'added')
+            .map((change) => {
+              const raw = change.doc.data();
+              const data = { ...raw, id: change.doc.id, fullName: getCandidateName(raw) };
+              const ms = getApplicationTimestamp(raw);
+              return {
+                id: `notif-${collectionName}-${change.doc.id}`,
+                type,
+                ...describe(data),
+                timestamp: new Date(ms || Date.now()).toISOString(),
+                read,
+                sourceId: change.doc.id,
+                data,
+              };
+            });
+          if (fresh.length === 0) return;
           setNotifications((prev) => {
-            if (prev.some((n) => n.id === newNotif.id)) return prev;
-            // Play subtle tone if window is active and newly added after mount
-            return [newNotif, ...prev].slice(0, 30);
+            const known = new Set(prev.map((n) => n.id));
+            const merged = [...fresh.filter((n) => !known.has(n.id)), ...prev];
+            return merged.sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp)).slice(0, 30);
           });
-        }
-      });
-    }, (err) => console.warn('Notification snapshot applications notice:', err));
-
-    // 2. Listen to enterprise inquiries
-    const qEnt = query(collection(db, 'enterpriseInquiries'), limit(20));
-    const unsubEnt = onSnapshot(qEnt, (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added') {
-          const data = change.doc.data();
-          const createdAt = data.createdAt || new Date().toISOString();
-          const newNotif: AdminNotification = {
-            id: `notif-ent-${change.doc.id}`,
-            type: 'enterprise_inquiry',
-            title: `Enterprise Inquiry: ${data.companyName || 'Corporate Lead'}`,
-            message: `Scope: ${data.primaryFocus || 'Enterprise Enablement'} (${data.teamSize || 'Custom team'}) • ${data.workEmail || ''}`,
-            timestamp: createdAt,
-            read: false,
-            sourceId: change.doc.id,
-            data: { ...data, id: change.doc.id },
-          };
-
-          setNotifications((prev) => {
-            if (prev.some((n) => n.id === newNotif.id)) return prev;
-            return [newNotif, ...prev].slice(0, 30);
-          });
-        }
-      });
-    }, (err) => console.warn('Notification snapshot enterprise notice:', err));
-
-    // 3. Listen to contact messages
-    const qMsg = query(collection(db, 'contactMessages'), limit(20));
-    const unsubMsg = onSnapshot(qMsg, (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added') {
-          const data = change.doc.data();
-          const createdAt = data.createdAt || new Date().toISOString();
-          const newNotif: AdminNotification = {
-            id: `notif-msg-${change.doc.id}`,
-            type: 'contact_message',
-            title: `Helpdesk Message: ${data.name || data.fullName || 'Inquirer'}`,
-            message: `${data.inquiryType ? `[${data.inquiryType.toUpperCase()}] ` : ''}${data.message?.slice(0, 60)}...`,
-            timestamp: createdAt,
-            read: false,
-            sourceId: change.doc.id,
-            data: { ...data, id: change.doc.id },
-          };
-
-          setNotifications((prev) => {
-            if (prev.some((n) => n.id === newNotif.id)) return prev;
-            return [newNotif, ...prev].slice(0, 30);
-          });
-        }
-      });
-    }, (err) => console.warn('Notification snapshot messages notice:', err));
-
-    return () => {
-      unsubApps();
-      unsubEnt();
-      unsubMsg();
+        },
+        (err) => console.warn(`Notification listener for ${collectionName} failed:`, err)
+      );
     };
+
+    const unsubscribers = [
+      listen('applications', 'application', (d) => ({
+        title: `New Student Application: ${d.fullName}`,
+        message: `Applied for ${d.courseTitle || 'Executive Track'} • ${d.email || ''}`,
+      })),
+      listen('enterpriseInquiries', 'enterprise_inquiry', (d) => ({
+        title: `Enterprise Inquiry: ${d.companyName || 'Corporate Lead'}`,
+        message: `Scope: ${d.primaryFocus || 'Enterprise Enablement'} (${d.teamSize || 'Custom team'}) • ${d.workEmail || ''}`,
+      })),
+      listen('contactMessages', 'contact_message', (d) => ({
+        title: `Helpdesk Message: ${d.fullName}`,
+        message: `${d.inquiryType ? `[${String(d.inquiryType).toUpperCase()}] ` : ''}${String(d.message || '').slice(0, 60)}...`,
+      })),
+    ];
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
   }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;

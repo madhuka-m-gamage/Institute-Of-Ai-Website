@@ -62,7 +62,7 @@ export interface EnterpriseInquiry {
   timeline: string;
   customRequirements?: string;
   userId?: string;
-  createdAt?: string;
+  createdAt?: unknown;
 }
 
 export interface FacultyMember {
@@ -117,7 +117,7 @@ export interface StudentApplication {
   goals?: string;
   status: ApplicationStatus;
   notes?: string;
-  createdAt: string;
+  createdAt?: unknown; // Firestore Timestamp on new docs; ISO string on older ones — read via getApplicationTimestamp
   reviewedAt?: string;
   reviewedBy?: string;
   decisionLetterSent?: boolean;
@@ -128,17 +128,12 @@ export interface StudentApplication {
 
 export function getCandidateName(app?: Partial<StudentApplication> | null): string {
   if (!app) return 'Candidate';
-  
-  const candidate = (
-    app.fullName ||
-    app.applicantName ||
-    app.name ||
-    app.candidateName ||
-    ''
-  ).trim();
 
-  if (candidate && candidate.toLowerCase() !== 'undefined' && candidate.toLowerCase() !== 'null') {
-    return candidate;
+  // Public submissions can carry any value, so each alias is checked on its own and non-strings are skipped.
+  for (const value of [app.fullName, app.applicantName, app.name, app.candidateName]) {
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim();
+    if (trimmed && trimmed.toLowerCase() !== 'undefined' && trimmed.toLowerCase() !== 'null') return trimmed;
   }
 
   // If name is absent, extract formatted name from email (e.g. "madhuka.gamage@gmail.com" -> "Madhuka Gamage")
@@ -160,30 +155,33 @@ export function getCandidateName(app?: Partial<StudentApplication> | null): stri
   return 'Candidate';
 }
 
-export function getApplicationTimestamp(app?: Partial<StudentApplication> | any): number {
-  if (!app) return 0;
-  const raw = app.createdAt || app.submittedAt || app.created_at || app.timestamp;
+// Normalizes a Firestore Timestamp, epoch number or date string to milliseconds (0 if unusable).
+export function toMillis(raw: unknown): number {
   if (!raw) return 0;
-  
+
   if (typeof raw === 'object') {
-    if (typeof raw.toDate === 'function') {
-      return raw.toDate().getTime();
+    const ts = raw as { toDate?: () => Date; seconds?: unknown; nanoseconds?: unknown };
+    if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+    if (typeof ts.seconds === 'number') {
+      return ts.seconds * 1000 + Math.floor((typeof ts.nanoseconds === 'number' ? ts.nanoseconds : 0) / 1000000);
     }
-    if (typeof raw.seconds === 'number') {
-      return raw.seconds * 1000 + Math.floor((raw.nanoseconds || 0) / 1000000);
-    }
+    return 0;
   }
-  
-  if (typeof raw === 'number') {
-    return raw;
-  }
-  
+
+  // Values below 1e12 can only be epoch seconds (1e12 ms is September 2001).
+  if (typeof raw === 'number') return raw < 1e12 ? raw * 1000 : raw;
+
   if (typeof raw === 'string') {
     const parsed = Date.parse(raw);
     if (!isNaN(parsed)) return parsed;
   }
-  
+
   return 0;
+}
+
+export function getApplicationTimestamp(app?: Partial<StudentApplication> | any): number {
+  if (!app) return 0;
+  return toMillis(app.createdAt || app.submittedAt || app.created_at || app.timestamp);
 }
 
 export function formatApplicationDate(app?: Partial<StudentApplication> | any): string {
