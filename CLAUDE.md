@@ -28,7 +28,7 @@ CI (`.github/workflows/ci.yml`) runs lint, `npm test`, the build, and the rules 
 
 **Firebase is the only backend datastore.** [src/lib/firebase.ts](src/lib/firebase.ts) initializes the app from `firebase-applet-config.json` (project `institute-of-ai-509800`, named database `ioai-website`) and exports `db`/`auth` plus auth helpers. Google sign-in requests identity only; `getGmailSendToken()` asks for `gmail.send` incrementally when an admin first sends mail. [firestore.rules](firestore.rules) is the real authorization boundary: staff roles live in `users/{uid}.role` (`super_admin`, `admissions_officer`, `lead_faculty`, `curriculum_mentor`); public forms may `create` only payloads matching an exact field list; `adminAuditLogs` is append-only with the actor and server timestamp enforced. `firebase-blueprint.json` documents entity schemas; keep it in sync when changing document shapes.
 
-**Admissions workflow:** [src/services/applicationWorkflow.ts](src/services/applicationWorkflow.ts) is a deterministic, client-side engine (static rules keyed on `courseId`/experience) that writes to `application_workflows`.
+**Applications:** the public Apply form writes one `applications` document. There is no automated applicant email or scoring; admissions staff send decision letters from the admin console.
 
 **Gmail sending** ([src/services/workspace.ts](src/services/workspace.ts)): `sendGmailMessage` hand-builds the MIME message and calls the Gmail REST API with `fetch`. It accepts only a single plain recipient address (recipients come from public submissions) and encodes subjects/filenames per RFC 2047/2231.
 

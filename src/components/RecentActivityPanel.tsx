@@ -68,7 +68,6 @@ export const RecentActivityPanel: React.FC<RecentActivityPanelProps> = ({
   compact = false,
 }) => {
   const [rawAuditLogs, setRawAuditLogs] = useState<any[]>([]);
-  const [workflowLogs, setWorkflowLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isLiveStreaming, setIsLiveStreaming] = useState<boolean>(true);
 
@@ -104,22 +103,8 @@ export const RecentActivityPanel: React.FC<RecentActivityPanelProps> = ({
       }
     );
 
-    // Also listen to application_workflows for automated candidate welcome emails & admissions processing
-    const qWf = query(collection(db, 'application_workflows'), orderBy('sentAt', 'desc'), limit(40));
-    const unsubscribeWf = onSnapshot(
-      qWf,
-      (snapshot) => {
-        const wfDocs = snapshot.docs.map((d) => ({ id: `wf-${d.id}`, ...d.data() }));
-        setWorkflowLogs(wfDocs);
-      },
-      (err) => {
-        console.warn('Workflow logs notice:', err);
-      }
-    );
-
     return () => {
       unsubscribeAudit();
-      unsubscribeWf();
     };
   }, []);
 
@@ -216,23 +201,6 @@ export const RecentActivityPanel: React.FC<RecentActivityPanelProps> = ({
       });
     });
 
-    // 2. Parse Workflow Logs (Automated Admissions Onboarding Dispatches)
-    workflowLogs.forEach((wf) => {
-      events.push({
-        id: wf.id,
-        timestamp: wf.sentAt || new Date().toISOString(),
-        actorEmail: 'system@instituteofai.com (Automated Workflow)',
-        action: `Admissions Onboarding Email Dispatched to ${wf.applicantName || wf.fullName || wf.email}`,
-        entityType: 'application',
-        details: `Auto-generated curriculum recommendations, readiness score (${wf.analysis?.readinessScore || 95}/100), and study roadmap dispatched for ${wf.courseTitle}.`,
-        activityType: 'workflow_enrollment',
-        candidateName: wf.applicantName || wf.fullName,
-        candidateEmail: wf.email,
-        courseTitle: wf.courseTitle,
-        subject: wf.generatedEmailSubject,
-      });
-    });
-
     // 3. Synthesize candidate status and decision records from applications directly if audit is empty
     if (events.length === 0) {
       applications.forEach((app) => {
@@ -280,7 +248,7 @@ export const RecentActivityPanel: React.FC<RecentActivityPanelProps> = ({
       const timeB = new Date(b.timestamp).getTime() || 0;
       return timeB - timeA;
     });
-  }, [rawAuditLogs, workflowLogs, applications]);
+  }, [rawAuditLogs, applications]);
 
   // Filtered Events
   const filteredEvents = useMemo(() => {
@@ -300,7 +268,6 @@ export const RecentActivityPanel: React.FC<RecentActivityPanelProps> = ({
         if (typeFilter === 'email' && ev.activityType !== 'decision_letter' && ev.activityType !== 'bulk_email' && ev.activityType !== 'workflow_enrollment') return false;
         if (typeFilter === 'decision' && ev.activityType !== 'decision_letter') return false;
         if (typeFilter === 'bulk' && ev.activityType !== 'bulk_status' && ev.activityType !== 'bulk_email') return false;
-        if (typeFilter === 'workflow' && ev.activityType !== 'workflow_enrollment') return false;
       }
 
       // 3. Date recency filter
@@ -506,7 +473,6 @@ export const RecentActivityPanel: React.FC<RecentActivityPanelProps> = ({
                 <option value="status" className="bg-[#00172e] text-sky-400">STATUS TRANSITIONS ({metrics.statusChanges})</option>
                 <option value="bulk" className="bg-[#00172e] text-purple-400">BULK / MASS OPERATIONS ({metrics.bulkOps})</option>
                 <option value="decision" className="bg-[#00172e] text-white">DECISION LETTERS ONLY</option>
-                <option value="workflow" className="bg-[#00172e] text-white">AUTO ONBOARDING DISPATCHES</option>
               </select>
             </div>
 

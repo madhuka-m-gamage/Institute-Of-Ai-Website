@@ -115,10 +115,10 @@ export function App() {
     setIsApplyOpen(true);
   };
 
-  const handleApplicationSuccess = (info: { courseTitle: string; email: string; emailSubject: string }) => {
+  const handleApplicationSuccess = (info: { courseTitle: string; email: string }) => {
     addToast(
-      'Application Dispatched',
-      `Your application for "${info.courseTitle}" was processed! Confirmation sent to ${info.email}.`,
+      'Application Received',
+      `Your application for "${info.courseTitle}" was received. Our admissions team will contact you at ${info.email}.`,
       'success'
     );
   };

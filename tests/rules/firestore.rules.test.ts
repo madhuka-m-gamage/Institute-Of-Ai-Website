@@ -112,10 +112,14 @@ describe('Q1 rules: users collection (FB-9/ADM-5)', () => {
     assertSucceeds(updateDoc(doc(as('super'), 'users/norole'), { role: 'admissions_officer' })));
 });
 
-describe('CHARACTERIZATION rules: application_workflows — FB-4/ADM-6/PUB-4, flips in Charge Q7', () => {
-  it('BUG: anonymous can still plant workflow/activity events', () =>
-    assertSucceeds(addDoc(collection(anon(), 'application_workflows'), { event: 'forged' })));
-  it('workflow docs are immutable', () => assertFails(updateDoc(doc(as('super'), 'application_workflows/w1'), { a: 2 })));
+describe('Q7 rules: application_workflows is closed (FB-4/ADM-6/PUB-4)', () => {
+  it('anonymous cannot plant workflow/activity events', () =>
+    assertFails(addDoc(collection(anon(), 'application_workflows'), { event: 'forged' })));
+  it('even staff cannot write or read it any more', async () => {
+    await assertFails(addDoc(collection(as('super'), 'application_workflows'), { event: 'x' }));
+    await assertFails(updateDoc(doc(as('super'), 'application_workflows/w1'), { a: 2 }));
+    await assertFails(getDocs(collection(as('super'), 'application_workflows')));
+  });
 });
 
 describe('Q2 rules: adminAuditLogs is a staff-only, unforgeable, append-only trail (FB-5/ADM-3/GWS-12)', () => {
