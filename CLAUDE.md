@@ -13,7 +13,7 @@ npm run dev          # vite dev server on :3000
 npm run build        # vite build → dist/ (what Vercel serves)
 npm run preview      # serve the production build locally
 npm run lint         # tsc --noEmit (note: @types/react isn't installed yet, so JSX props aren't type-checked)
-npm test             # Vitest: tests/characterization + tests/unit
+npm test             # Vitest: tests/{site,admin,lib} (mirror src/; rules tests live in tests/rules)
 npm run test:rules   # Firestore rules tests against the local emulator (needs Java + firebase CLI; offline demo project)
 npm run deploy:rules # deploy firestore.rules — production-affecting, owner go-ahead only
 ```
