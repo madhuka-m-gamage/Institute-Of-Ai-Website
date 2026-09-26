@@ -1,7 +1,7 @@
 # Cavalry Tracker — Institute Of AI Website
 
 - **Tracker file:** `CAVALRY-TRACKER.md` at repo root (findings docs in `docs/cavalry/recon/`)
-- **Vercel project:** `institute-of-ai-website` (`prj_xI1bnK4E7PhxHYzNam5PKlYm600Z`, team `team_HbLRsfQkonXxDJN4hDoxGMRH`); only domain `institute-of-ai-website.vercel.app`
+- **Vercel project:** `institute-of-ai-website` (`prj_Qll5No7BuR2YZn390PusiB1oGME6`, team "Print To Frame" `team_HbLRsfQkonXxDJN4hDoxGMRH`), recreated 2026-09-26 from GitHub (old `prj_xI1bnK4E7PhxHYzNam5PKlYm600Z` deleted by owner). Production branch `main`, domain `institute-of-ai-website.vercel.app` (reclaimed); settings: Vite, build `vite build`, output `dist`, install `npm install`, Node 24.x, no env vars; Vercel Authentication (Standard Protection) on for preview/deployment URLs, production domain public
 - **Firebase/GCP project:** `institute-of-ai-509800` ("Institute Of AI", project number 673731016452), Firestore **named** database `ioai-website` (asia-south1, Native, Standard). Replaces the old AI Studio project `gen-lang-client-0216460614` (db `ai-studio-instituteofaiweb-…`), which is to be locked and retired — no data migrated.
 - **Detected stack:** frontend React 19 SPA (Vite 6, Tailwind v4, hand-rolled routing), backend/database Firebase Auth + Firestore (enforcement via `firestore.rules`); Vercel serverless functions in `api/` for optional Gemini calls; Express `server.ts` for local dev / `npm start`
 - **Audited ref:** `origin/main` @ `9779fd9` (worktree `worktree001`). Excludes unpushed local commit `19232dc` (role-based access control).
