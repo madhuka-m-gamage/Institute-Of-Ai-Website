@@ -1,19 +1,19 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Page, EnterpriseInquiry } from './types';
-import { Navbar } from './components/Navbar';
-import { Footer } from './components/Footer';
-import { SearchModal } from './components/SearchModal';
-import { ApplyModal } from './components/ApplyModal';
-import { EnterpriseContactModal } from './components/EnterpriseContactModal';
+import { Navbar } from './site/components/Navbar';
+import { Footer } from './site/components/Footer';
+import { SearchModal } from './site/components/SearchModal';
+import { ApplyModal } from './site/components/ApplyModal';
+import { EnterpriseContactModal } from './site/components/EnterpriseContactModal';
 import { ProgressBar } from './ui/ProgressBar';
 import { BackToTop } from './ui/BackToTop';
 import { ToastContainer, ToastMessage } from './ui/Toast';
-import { HomePage } from './pages/HomePage';
-import { AboutPage } from './pages/AboutPage';
-import { ProgramsPage } from './pages/ProgramsPage';
-import { ResearchPage } from './pages/ResearchPage';
-import { ContactPage } from './pages/ContactPage';
+import { HomePage } from './site/pages/HomePage';
+import { AboutPage } from './site/pages/AboutPage';
+import { ProgramsPage } from './site/pages/ProgramsPage';
+import { ResearchPage } from './site/pages/ResearchPage';
+import { ContactPage } from './site/pages/ContactPage';
 import { AdminPageFullSkeleton } from './ui/Skeleton';
 
 // Loaded on demand so public visitors don't download the admin console.

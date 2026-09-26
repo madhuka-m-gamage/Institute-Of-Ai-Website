@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { COURSES } from '../data/mockData';
-import { Page, CourseProgram } from '../types';
-import { ScrollReveal } from '../ui/ScrollReveal';
-import { CardSkeleton } from '../ui/Skeleton';
+import { COURSES } from '../../data/mockData';
+import { Page, CourseProgram } from '../../types';
+import { ScrollReveal } from '../../ui/ScrollReveal';
+import { CardSkeleton } from '../../ui/Skeleton';
 import { Search, Check, Clock, Sparkles, Filter, ArrowUpRight, Calendar, ChevronDown, ChevronUp, BookOpen, Zap, Layers, Building2, Send, Tag, GraduationCap, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 

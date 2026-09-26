@@ -10,7 +10,7 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('../../src/lib/firebase', () => ({ db: {}, auth: { currentUser: null } }));
 vi.mock('canvas-confetti', () => ({ default: vi.fn() }));
 
-import { ApplyModal } from '../../src/components/ApplyModal';
+import { ApplyModal } from '../../src/site/components/ApplyModal';
 import { COURSES } from '../../src/data/mockData';
 
 function fillAndSubmit() {

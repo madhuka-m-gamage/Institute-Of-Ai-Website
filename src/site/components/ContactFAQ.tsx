@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronDown, HelpCircle, Sparkles, GraduationCap, Laptop, Building2, Clock, CheckCircle2 } from 'lucide-react';
-import { ScrollReveal } from '../ui/ScrollReveal';
+import { ScrollReveal } from '../../ui/ScrollReveal';
 
 export interface FAQItem {
   id: string;
