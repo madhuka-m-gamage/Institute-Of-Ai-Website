@@ -1,5 +1,5 @@
 import React from 'react';
-import { ApplicationStatus } from '../types';
+import { ApplicationStatus } from '../../types';
 import { Mail, CheckCircle2, AlertCircle, Clock, ShieldAlert, Sparkles, Building2, ExternalLink, FileText, Download, Paperclip } from 'lucide-react';
 
 export interface EmailPreviewAttachment {

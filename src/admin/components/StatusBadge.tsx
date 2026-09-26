@@ -1,5 +1,5 @@
 import React from 'react';
-import { ApplicationStatus } from '../types';
+import { ApplicationStatus } from '../../types';
 import { CheckCircle2, Clock, Eye, Bookmark, XCircle, AlertCircle } from 'lucide-react';
 
 interface StatusBadgeProps {

@@ -1,6 +1,6 @@
 import React from 'react';
-import { Page } from '../types';
-import { ScrollReveal } from './ScrollReveal';
+import { Page } from '../../types';
+import { ScrollReveal } from '../../ui/ScrollReveal';
 
 interface FooterProps {
   onNavigate: (page: Page) => void;

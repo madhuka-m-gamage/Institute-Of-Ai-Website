@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { logAdminAction } from '../services/auditLog';
-import { StudentApplication } from '../types';
+import { StudentApplication } from '../../types';
 import { generateCandidateCsv, downloadCsvString, CsvExportOptions } from '../services/csvExport';
 import {
   Download,

@@ -14,8 +14,8 @@
 |---|---|---|---|---|---|
 | 1 | recon | done | 2026-09-26 | 2026-09-26 | 5/5 modules audited; 9 decisions accepted; owner signed off; 2 urgency questions (live rules, sign-up) do not block Fortify |
 | 2 | fortify | done | 2026-09-26 | 2026-09-26 | Vitest + rules emulator harness; 26 unit/component + 17 rules characterization tests, all passing; see "Characterization coverage" |
-| 3 | charge | in progress | 2026-09-26 | — | Mode A (one item per PR, wait for merge). PRs target `staging`; `staging` → `main` promotions are separate, owner-confirmed. Foundation #2 merged. **Q1 done:** #4 → staging, #6 → main (merged 03:50), rules deployed to `ioai-website` 03:49 (ruleset `4f6f7a96-75b9-4f34-b8bd-2c467f2f1781`, verified identical). **Q2 done:** #7 → staging, #9 → main (merged 04:27), rules deployed 04:32 (ruleset `4b7d09c6-c3ce-4ac1-a548-fb0291c365e7`, verified identical). CI added (#8). **Q3 done:** #10 → staging, #11 → main (squash; histories relinked by #13 after #12 was also squashed). Repo rulesets: A = `main` (merge only), B = `staging` (squash + merge), both require PR + both CI checks. **Bundle split done** (#14). **From Q4 on (owner instruction 2026-09-26):** Claude squash-merges each item into `staging` once required checks pass and continues to the next item without waiting; owner reviews and promotes to `main` later. No rules deploys or `main` merges by Claude. **Q4 done** (#15). **Q5 done** (#16). **Q6 done** (#17). **Q7:** `fix/q7-remove-fake-workflow` — run **paused after Q7** at owner request; see Rally Point below. Next: Q8 |
-| 4 | regroup | not started | — | — | |
+| 3 | charge | in progress | 2026-09-26 | — | Mode A (one item per PR, wait for merge). PRs target `staging`; `staging` → `main` promotions are separate, owner-confirmed. Foundation #2 merged. **Q1 done:** #4 → staging, #6 → main (merged 03:50), rules deployed to `ioai-website` 03:49 (ruleset `4f6f7a96-75b9-4f34-b8bd-2c467f2f1781`, verified identical). **Q2 done:** #7 → staging, #9 → main (merged 04:27), rules deployed 04:32 (ruleset `4b7d09c6-c3ce-4ac1-a548-fb0291c365e7`, verified identical). CI added (#8). **Q3 done:** #10 → staging, #11 → main (squash; histories relinked by #13 after #12 was also squashed). Repo rulesets: A = `main` (merge only), B = `staging` (squash + merge), both require PR + both CI checks. **Bundle split done** (#14). **From Q4 on (owner instruction 2026-09-26):** Claude squash-merges each item into `staging` once required checks pass and continues to the next item without waiting; owner reviews and promotes to `main` later. No rules deploys or `main` merges by Claude. **Q4 done** (#15). **Q5 done** (#16). **Q6 done** (#17). **Q7 done** (#18); promoted with the bundle split + Q4–Q6 in #19 (merge commit `b94c200`); rules deployed 2026-09-26 06:18 (ruleset `5747e720-5eb0-43a6-add7-6f0938d10683`, verified identical). Paused for Regroup (Phase 4, done). **Next: Q8** — read backlog paths through the Regroup path map |
+| 4 | regroup | done | 2026-09-26 | 2026-09-26 | Owner opted in mid-Charge. 4 pure-move groups: #20 ui, #21 site, #22 admin, root tidy (this PR). Each verified by diff check (only import specifiers changed), unchanged test counts, and **byte-identical build output** (same chunk hashes). Layout: `src/{ui, site/{pages,components,services}, admin/{AdminPage,components,services}, lib, data, types.ts}`; CLAUDE.md "Where new code goes". No behavior change → nothing to deploy beyond the normal promotion. Charge resumes at Q8 |
 | 5 | breach | not started | — | — | |
 
 ## Recon modules
@@ -77,6 +77,21 @@ Every test is a *characterization* test: it pins current behavior, including bug
 | `tests/characterization/csvExport.test.ts` | Formula cells (`= + - @`) exported verbatim (ADM-7); Timestamp `createdAt` exported as `[object Object]` — **correction to Recon: it does not crash** (FB-15) | Q9, Q10 |
 
 **Not covered (Charge must write tests first when touching these):** AdminPage client-side auth gating (ADM-1 UI side; the enforcement side is covered by rules tests); BulkEmailModal send loop — reset mid-send, duplicate sends, post-send batch (GWS-10/11, FB-16); BulkStatusModal >500 ops (ADM-10); decision letters + PDFs (ADM-11..14); notification bell / activity feed queries (FB-17, ADM-8, ADM-15). Q4, Q6, Q12, Q13 are deletions/config — nothing behavioral to pin beyond the tests above.
+
+## Regroup path map (Phase 4)
+
+Backlog rows written before Regroup use the old paths; read them through this map. Updated per group.
+
+| Old path | New path | Group |
+|---|---|---|
+| `src/components/{ScrollReveal,Skeleton,Toast,AnimatedSuccessCheckmark,ProgressBar,BackToTop}.tsx` | `src/ui/` | 1 |
+| `src/pages/{Home,About,Programs,Research,Contact}Page.tsx` | `src/site/pages/` | 2 |
+| `src/components/{Navbar,Footer,SearchModal,ApplyModal,EnterpriseContactModal,ContactFAQ,ThreeBackground}.tsx` | `src/site/components/` | 2 |
+| `src/pages/AdminPage.tsx` | `src/admin/AdminPage.tsx` | 3 |
+| `src/components/{AdminAuditTrailPanel,AdminNotificationBell,ApplicationDetailModal,BulkEmailModal,BulkStatusModal,CandidateExportModal,EnterpriseInquiryModal,RecentActivityPanel,UserManagementPanel,StatusBadge,EmailRichPreview}.tsx` | `src/admin/components/` | 3 |
+| `src/services/{auditLog,csvExport,pdfDocuments}.ts` | `src/admin/services/` | 3 |
+| `src/services/workspace.ts` | `src/admin/services/gmail.ts` | 3 |
+| `metadata.json` (AI Studio leftover, still declared server-side Gemini) | deleted | 4 |
 
 ## Open questions for human
 

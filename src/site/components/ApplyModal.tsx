@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
 import { collection, addDoc } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
-import { COURSES } from '../data/mockData';
-import { AnimatedSuccessCheckmark } from './AnimatedSuccessCheckmark';
+import { db, auth } from '../../lib/firebase';
+import { COURSES } from '../../data/mockData';
+import { AnimatedSuccessCheckmark } from '../../ui/AnimatedSuccessCheckmark';
 import { X, Cpu, Sparkles, Send, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 

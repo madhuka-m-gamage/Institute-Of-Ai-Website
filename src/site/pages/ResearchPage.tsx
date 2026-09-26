@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { RESEARCH_PAPERS } from '../data/mockData';
-import { ResearchPaper } from '../types';
-import { ScrollReveal } from '../components/ScrollReveal';
-import { SkeletonBlock, PaperCardSkeleton } from '../components/Skeleton';
+import { RESEARCH_PAPERS } from '../../data/mockData';
+import { ResearchPaper } from '../../types';
+import { ScrollReveal } from '../../ui/ScrollReveal';
+import { SkeletonBlock, PaperCardSkeleton } from '../../ui/Skeleton';
 import { FileText, Download, Sparkles, Clock, Tag, X, Bot } from 'lucide-react';
 import { motion } from 'motion/react';
 

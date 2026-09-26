@@ -11,7 +11,7 @@ vi.mock('firebase/firestore', () => ({
 }));
 vi.mock('../../src/lib/firebase', () => ({ db: {}, auth }));
 
-import { logAdminAction } from '../../src/services/auditLog';
+import { logAdminAction } from '../../src/admin/services/auditLog';
 
 beforeEach(() => {
   addDoc.mockReset();

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Page } from '../types';
-import { LOGO_ICON_URL } from '../data/mockData';
+import { Page } from '../../types';
+import { LOGO_ICON_URL } from '../../data/mockData';
 import { Search, Menu, X, ArrowUpRight, ChevronRight, Sparkles, BookOpen, User, MessageSquare, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 

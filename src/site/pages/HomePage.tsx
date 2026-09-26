@@ -1,7 +1,7 @@
 import React from 'react';
-import { Page } from '../types';
+import { Page } from '../../types';
 import { ThreeBackground } from '../components/ThreeBackground';
-import { ScrollReveal } from '../components/ScrollReveal';
+import { ScrollReveal } from '../../ui/ScrollReveal';
 import { ArrowUpRight, Cpu, Shield, Zap, Compass, ChevronRight, Activity } from 'lucide-react';
 import { motion } from 'motion/react';
 

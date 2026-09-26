@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-Marketing + admissions site for "Institute Of AI" — a static React SPA (Vite) hosted on Vercel, with Firebase (Auth + Firestore) as the only backend for applications, enterprise inquiries, contact messages, and the admin console. Originally scaffolded in Google AI Studio (see `metadata.json`). Security/quality work is tracked in [CAVALRY-TRACKER.md](CAVALRY-TRACKER.md).
+Marketing + admissions site for "Institute Of AI" — a static React SPA (Vite) hosted on Vercel, with Firebase (Auth + Firestore) as the only backend for applications, enterprise inquiries, contact messages, and the admin console. Originally scaffolded in Google AI Studio. Security/quality work is tracked in [CAVALRY-TRACKER.md](CAVALRY-TRACKER.md).
 
 ## Commands
 
@@ -20,6 +20,23 @@ npm run deploy:rules # deploy firestore.rules — production-affecting, owner go
 
 CI (`.github/workflows/ci.yml`) runs lint, `npm test`, the build, and the rules tests on every PR/push to `staging`/`main`; both jobs are required checks. Feature PRs squash-merge into `staging`; `staging` → `main` promotions use merge commits.
 
+## Where new code goes
+
+```
+src/
+  main.tsx, App.tsx      entry + hand-rolled router (add routes here, e.g. a 404 page)
+  types.ts               shared domain types + normalizing helpers
+  lib/firebase.ts        Firebase init + auth helpers (App Check init belongs here)
+  data/mockData.ts       catalog/marketing content, shared by site pages and admin PDFs
+  ui/                    generic presentational primitives with no feature knowledge (Toast, Skeleton, a Modal…)
+  site/                  public website
+    pages/  components/  services/
+  admin/                 admin console (loaded as its own lazy chunk — never import from site/ or App statically)
+    AdminPage.tsx  components/  services/
+```
+
+Rules of thumb: code used only by the public site goes in `site/`, only by the console in `admin/`, by both in `ui/` (presentational) or `lib/`/`types.ts` (logic). `site/` and `admin/` must not import from each other. Future serverless code goes in a root `api/` folder (Vercel convention).
+
 ## Architecture
 
 **Static SPA, no server code.** Vercel builds with `vite build` and serves `dist/`; `vercel.json` rewrites all paths to `index.html`. There are no API routes.
@@ -30,13 +47,13 @@ CI (`.github/workflows/ci.yml`) runs lint, `npm test`, the build, and the rules 
 
 **Applications:** the public Apply form writes one `applications` document. There is no automated applicant email or scoring; admissions staff send decision letters from the admin console.
 
-**Gmail sending** ([src/services/workspace.ts](src/services/workspace.ts)): `sendGmailMessage` hand-builds the MIME message and calls the Gmail REST API with `fetch`. It accepts only a single plain recipient address (recipients come from public submissions) and encodes subjects/filenames per RFC 2047/2231.
+**Gmail sending** ([src/admin/services/gmail.ts](src/admin/services/gmail.ts)): `sendGmailMessage` hand-builds the MIME message and calls the Gmail REST API with `fetch`. It accepts only a single plain recipient address (recipients come from public submissions) and encodes subjects/filenames per RFC 2047/2231.
 
-**Admin audit trail:** write entries only through `logAdminAction()` in [src/services/auditLog.ts](src/services/auditLog.ts) — it sets the actor and server timestamp the rules require.
+**Admin audit trail:** write entries only through `logAdminAction()` in [src/admin/services/auditLog.ts](src/admin/services/auditLog.ts) — it sets the actor and server timestamp the rules require.
 
 **`StudentApplication` has multiple optional name fields** (`fullName`, `applicantName`, `name`, `candidateName`) because records originate from different write paths. Always resolve display names via `getCandidateName()` in [src/types.ts](src/types.ts) rather than reading a field directly. The same file's `getApplicationTimestamp`/`formatApplicationDate` normalize Firestore `Timestamp` objects, epoch numbers, and ISO strings — use them instead of ad hoc date parsing.
 
-**Admin console** ([src/pages/AdminPage.tsx](src/pages/AdminPage.tsx)) is a single page with its own tab state (`admissions | activity | users | audit`) composing components from `src/components/` (bulk email/status modals, CSV export via `src/services/csvExport.ts`, PDF generation via `src/services/pdfDocuments.ts`, audit trail, user management). It resolves the signed-in user's staff role from Firestore and fails closed; the UI gate mirrors, but does not replace, the rules.
+**Admin console** ([src/admin/AdminPage.tsx](src/admin/AdminPage.tsx)) is a single page with its own tab state (`admissions | activity | users | audit`) composing components from `src/admin/components/` (bulk email/status modals, CSV export via `src/admin/services/csvExport.ts`, PDF generation via `src/admin/services/pdfDocuments.ts`, audit trail, user management). It resolves the signed-in user's staff role from Firestore and fails closed; the UI gate mirrors, but does not replace, the rules.
 
 **Styling:** Tailwind CSS v4 via the `@tailwindcss/vite` plugin (no `tailwind.config.js` — v4 uses CSS-based config in `src/index.css`). Dark theme is baked into the HTML shell (`<html class="dark">`, hardcoded `bg-[#031427]`/`text-[#d3e4fe]` on `<body>` in [index.html](index.html)) rather than toggled at runtime.
 

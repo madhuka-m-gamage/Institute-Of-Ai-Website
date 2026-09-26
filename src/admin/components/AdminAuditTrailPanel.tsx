@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../lib/firebase';
+import { db } from '../../lib/firebase';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
-import { AdminAuditLog, StudentApplication, getApplicationTimestamp } from '../types';
+import { AdminAuditLog, StudentApplication, getApplicationTimestamp } from '../../types';
 import { ShieldCheck, History, User, Clock, Filter, RefreshCw, Layers, Database, Activity, Mail } from 'lucide-react';
-import { ListItemSkeleton } from './Skeleton';
+import { ListItemSkeleton } from '../../ui/Skeleton';
 import { RecentActivityPanel } from './RecentActivityPanel';
 
 interface AdminAuditTrailPanelProps {
