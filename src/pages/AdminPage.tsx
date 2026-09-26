@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
 import { collection, getDocs, getDoc, setDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db, googleSignIn, emailPasswordSignIn, logout, initAuth } from '../lib/firebase';
+import { db, googleSignIn, emailPasswordSignIn, logout, initAuth, getGmailSendToken } from '../lib/firebase';
 import { StudentApplication, ApplicationStatus, StaffRole, getCandidateName, getApplicationTimestamp, formatApplicationDate } from '../types';
 import {
   Shield,
@@ -15,7 +15,6 @@ import {
   LogOut,
   AlertTriangle,
   ShieldCheck,
-  Sparkles,
   UserCog,
   FileSpreadsheet,
   CheckCircle2,
@@ -49,7 +48,6 @@ import {
 } from 'lucide-react';
 import { ScrollReveal } from '../components/ScrollReveal';
 import { motion, AnimatePresence } from 'motion/react';
-import { WorkspaceAdminPanel } from '../components/WorkspaceAdminPanel';
 import { UserManagementPanel } from '../components/UserManagementPanel';
 import { AdminAuditTrailPanel } from '../components/AdminAuditTrailPanel';
 import { RecentActivityPanel } from '../components/RecentActivityPanel';
@@ -67,7 +65,7 @@ interface AdminPageProps {
   onAddToast?: (title: string, description: string, type?: 'success' | 'info' | 'error') => void;
 }
 
-type MainTabType = 'admissions' | 'activity' | 'workspace' | 'users' | 'audit';
+type MainTabType = 'admissions' | 'activity' | 'users' | 'audit';
 type AdmissionsSubTab = 'applications' | 'activity' | 'enterprise' | 'messages';
 
 const tableListVariants = {
@@ -271,7 +269,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
       const result = await googleSignIn();
       if (result) {
         setUser(result.user);
-        setAccessToken(result.accessToken);
         if (onAddToast) {
           onAddToast('Google Sign-In Verified', `Authenticated as ${result.user.email}`, 'success');
         }
@@ -284,6 +281,15 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
       }
     } finally {
       setIsSigningIn(false);
+    }
+  };
+
+  const handleAuthorizeGmail = async () => {
+    try {
+      setAccessToken(await getGmailSendToken());
+      if (onAddToast) onAddToast('Gmail Authorized', 'You can now send email from the admin console.', 'success');
+    } catch (err: any) {
+      if (onAddToast) onAddToast('Gmail Authorization Failed', err.message || 'Could not authorize Gmail sending.', 'error');
     }
   };
 
@@ -697,7 +703,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
       </ScrollReveal>
 
       {/* Primary Top-Level Tab Navigation */}
-      <div className="p-1.5 rounded-2xl bg-[#00172e] border border-[#44474d]/40 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+      <div className="p-1.5 rounded-2xl bg-[#00172e] border border-[#44474d]/40 grid grid-cols-2 md:grid-cols-4 gap-2">
         <button
           onClick={() => setMainTab('admissions')}
           className={`py-3.5 px-4 rounded-xl text-xs font-mono-caps flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
@@ -720,18 +726,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
         >
           <Activity className="w-4 h-4" />
           <span className="text-sm">Recent Activity</span>
-        </button>
-
-        <button
-          onClick={() => setMainTab('workspace')}
-          className={`py-3.5 px-4 rounded-xl text-xs font-mono-caps flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
-            mainTab === 'workspace'
-              ? 'bg-[#102034] text-[#41e4c0] font-bold border border-[#41e4c0]/40 shadow-lg shadow-[#41e4c0]/10'
-              : 'text-[#94a3b8] hover:text-white hover:bg-[#000f21]'
-          }`}
-        >
-          <Sparkles className="w-4 h-4" />
-          <span className="text-sm">Workspace Hub</span>
         </button>
 
         {staffRole === 'super_admin' && (
@@ -1525,11 +1519,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
         />
       )}
 
-      {/* TAB 2: WORKSPACE CONFIGURATION */}
-      {mainTab === 'workspace' && (
-        <WorkspaceAdminPanel user={user} accessToken={accessToken} onAddToast={onAddToast} />
-      )}
-
       {/* TAB 3: USER MANAGEMENT */}
       {mainTab === 'users' && staffRole === 'super_admin' && (
         <UserManagementPanel currentUser={user} currentStaffRole={staffRole} onAddToast={onAddToast} />
@@ -1554,7 +1543,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
           onAddToast={onAddToast}
           currentAdminEmail={user?.email || 'admin@instituteofai.com'}
           accessToken={accessToken}
-          onConnectGoogle={handleGoogleLogin}
+          onConnectGoogle={handleAuthorizeGmail}
         />
       )}
 
@@ -1566,7 +1555,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
           onAddToast={onAddToast}
           accessToken={accessToken}
           currentAdminEmail={user?.email || 'admin@instituteofai.com'}
-          onConnectGoogle={handleGoogleLogin}
+          onConnectGoogle={handleAuthorizeGmail}
         />
       )}
 
