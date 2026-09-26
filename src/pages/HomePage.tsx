@@ -2,16 +2,15 @@ import React from 'react';
 import { Page } from '../types';
 import { ThreeBackground } from '../components/ThreeBackground';
 import { ScrollReveal } from '../components/ScrollReveal';
-import { ArrowUpRight, Cpu, Shield, Zap, Compass, ChevronRight, Activity, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Cpu, Shield, Zap, Compass, ChevronRight, Activity } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface HomePageProps {
   onNavigate: (page: Page) => void;
   onOpenApply: () => void;
-  onOpenAIAssistant?: () => void;
 }
 
-export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenApply, onOpenAIAssistant }) => {
+export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenApply }) => {
   const staggerHeading = {
     hidden: { opacity: 0 },
     visible: {
@@ -93,15 +92,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenApply, onO
                 <span>Explore Curriculum</span>
                 <ArrowUpRight className="w-4 h-4" />
               </button>
-              {onOpenAIAssistant && (
-                <button
-                  onClick={onOpenAIAssistant}
-                  className="w-full sm:w-auto px-7 py-4 bg-[#102034]/90 text-[#41e4c0] font-mono-caps text-xs font-bold uppercase tracking-wider rounded-sm border border-[#41e4c0]/50 hover:bg-[#41e4c0]/10 transition-all backdrop-blur-md flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Sparkles className="w-4 h-4 animate-pulse" />
-                  <span>AI Track Advisor</span>
-                </button>
-              )}
               <button
                 onClick={() => onNavigate('research')}
                 className="w-full sm:w-auto px-8 py-4 bg-[#102034]/90 text-[#F8FAFC] font-mono-caps text-xs font-bold uppercase tracking-wider rounded-sm border border-[#334155] hover:border-[#41e4c0] hover:text-[#41e4c0] transition-all backdrop-blur-md flex items-center justify-center gap-2 cursor-pointer"

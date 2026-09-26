@@ -6,7 +6,6 @@ import { Footer } from './components/Footer';
 import { SearchModal } from './components/SearchModal';
 import { ApplyModal } from './components/ApplyModal';
 import { EnterpriseContactModal } from './components/EnterpriseContactModal';
-import { AIAssistantModal } from './components/AIAssistantModal';
 import { ProgressBar } from './components/ProgressBar';
 import { BackToTop } from './components/BackToTop';
 import { ToastContainer, ToastMessage } from './components/Toast';
@@ -51,7 +50,6 @@ export function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isApplyOpen, setIsApplyOpen] = useState(false);
   const [isEnterpriseOpen, setIsEnterpriseOpen] = useState(false);
-  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
   const [applyCourseId, setApplyCourseId] = useState<string | undefined>();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -164,7 +162,6 @@ export function App() {
               <HomePage
                 onNavigate={handleNavigate}
                 onOpenApply={() => setIsApplyOpen(true)}
-                onOpenAIAssistant={() => setIsAIAssistantOpen(true)}
               />
             )}
             {currentPage === 'about' && (
@@ -212,12 +209,6 @@ export function App() {
         isOpen={isEnterpriseOpen}
         onClose={() => setIsEnterpriseOpen(false)}
         onSuccess={handleEnterpriseSuccess}
-      />
-
-      <AIAssistantModal
-        isOpen={isAIAssistantOpen}
-        onClose={() => setIsAIAssistantOpen(false)}
-        onSelectCourse={handleOpenApplyWithCourse}
       />
 
       {/* Floating Back to Top Button */}
