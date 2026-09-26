@@ -52,19 +52,32 @@ describe('ApplyModal submit — Q7 (PUB-4/PUB-12/PUB D-4)', () => {
   });
 });
 
-describe('CHARACTERIZATION ApplyModal submit failure — PUB-8, flips in Charge Q8', () => {
-  it('BUG PUB-8: shows success even when the Firestore write fails', async () => {
+describe('ApplyModal submit failure — Q8 (PUB-8)', () => {
+  it('shows an error and keeps the form, instead of success, when the write fails', async () => {
     addDoc.mockRejectedValue(new Error('permission-denied'));
     render(<ApplyModal isOpen onClose={() => {}} />);
     fillAndSubmit();
-    expect(await screen.findByText('Application Received')).toBeTruthy();
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(screen.queryByText('Application Received')).toBeNull();
+    expect(screen.getByPlaceholderText('alex@organization.com')).toBeTruthy();
   });
 });
 
-describe('CHARACTERIZATION ApplyModal course preselect — PUB-10, flips in Charge Q8', () => {
-  it('BUG: selectedCourseId changes after mount are ignored', () => {
+describe('ApplyModal open/reset — Q8 (PUB-10/PUB-11)', () => {
+  it('preselects the course passed when the modal opens', () => {
     const { rerender } = render(<ApplyModal isOpen={false} onClose={() => {}} selectedCourseId={COURSES[0].id} />);
     rerender(<ApplyModal isOpen onClose={() => {}} selectedCourseId={COURSES[1].id} />);
-    expect((screen.getAllByRole('combobox')[0] as HTMLSelectElement).value).toBe(COURSES[0].id);
+    expect((screen.getAllByRole('combobox')[0] as HTMLSelectElement).value).toBe(COURSES[1].id);
+  });
+
+  it('starts empty again after closing and reopening', async () => {
+    addDoc.mockResolvedValue({ id: 'x' });
+    const { rerender } = render(<ApplyModal isOpen onClose={() => {}} />);
+    fillAndSubmit();
+    await screen.findByText('Application Received');
+    rerender(<ApplyModal isOpen={false} onClose={() => {}} />);
+    rerender(<ApplyModal isOpen onClose={() => {}} />);
+    expect(screen.queryByText('Application Received')).toBeNull();
+    expect((screen.getByPlaceholderText('e.g. Alex Mercer') as HTMLInputElement).value).toBe('');
   });
 });

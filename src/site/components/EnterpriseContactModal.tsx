@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
-import { collection, addDoc } from 'firebase/firestore';
-import { db, auth, handleFirestoreError, OperationType } from '../../lib/firebase';
+import { submitEnterpriseInquiry } from '../services/submissions';
 import { EnterpriseInquiry } from '../../types';
 import { AnimatedSuccessCheckmark } from '../../ui/AnimatedSuccessCheckmark';
 import { X, Building2, CheckCircle, Send, Sparkles, Clock, ShieldCheck, Phone, Mail, User, Layers, ArrowRight, AlertCircle } from 'lucide-react';
@@ -32,6 +31,7 @@ export const EnterpriseContactModal: React.FC<EnterpriseContactModalProps> = ({
   });
 
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [errors, setErrors] = useState<{
     companyName?: string;
     contactName?: string;
@@ -121,78 +121,43 @@ export const EnterpriseContactModal: React.FC<EnterpriseContactModalProps> = ({
     if (!isValid) return;
 
     setStatus('submitting');
+    setSubmitError(null);
 
-    const submissionPayload = {
-      ...formData,
-      companyName: formData.companyName.trim(),
-      contactName: formData.contactName.trim(),
-      workEmail: formData.workEmail.trim(),
-      phone: formData.phone?.trim() || '',
-      userId: auth.currentUser?.uid || 'guest_enterprise',
-      createdAt: new Date().toISOString(),
-    };
-
+    let saved: EnterpriseInquiry;
     try {
-      if (auth.currentUser) {
-        await addDoc(collection(db, 'enterpriseInquiries'), submissionPayload);
-      } else {
-        // Also log locally or attempt write
-        try {
-          await addDoc(collection(db, 'enterpriseInquiries'), submissionPayload);
-        } catch {
-          // Graceful fallback for non-auth preview environments
-          console.info('Enterprise inquiry logged locally:', submissionPayload);
-        }
-      }
-
-      setStatus('success');
-      try {
-        confetti({
-          particleCount: 45,
-          spread: 60,
-          origin: { y: 0.6 },
-          colors: ['#41e4c0', '#38debb', '#60a5fa', '#93c5fd', '#38bdf8', '#34d399', '#fde047'],
-          ticks: 200,
-          gravity: 1.1,
-          scalar: 0.85,
-          shapes: ['circle', 'square'],
-          disableForReducedMotion: true,
-          zIndex: 9999,
-        });
-      } catch (confettiErr) {
-        console.warn('Confetti animation note:', confettiErr);
-      }
-      if (onSuccess) {
-        onSuccess(submissionPayload);
-      }
-    } catch (err: unknown) {
-      console.warn('Enterprise submission note:', err);
-      // Still show success to provide seamless user experience
-      setStatus('success');
-      try {
-        confetti({
-          particleCount: 45,
-          spread: 60,
-          origin: { y: 0.6 },
-          colors: ['#41e4c0', '#38debb', '#60a5fa', '#93c5fd', '#38bdf8', '#34d399', '#fde047'],
-          ticks: 200,
-          gravity: 1.1,
-          scalar: 0.85,
-          shapes: ['circle', 'square'],
-          disableForReducedMotion: true,
-          zIndex: 9999,
-        });
-      } catch {}
-      if (onSuccess) {
-        onSuccess(submissionPayload);
-      }
+      saved = await submitEnterpriseInquiry(formData);
+    } catch (err) {
+      console.warn('Enterprise inquiry submit failed:', err);
+      setStatus('idle');
+      setSubmitError("We couldn't send your inquiry. Please check your connection and try again.");
+      return;
     }
+
+    setStatus('success');
+    try {
+      confetti({
+        particleCount: 45,
+        spread: 60,
+        origin: { y: 0.6 },
+        colors: ['#41e4c0', '#38debb', '#60a5fa', '#93c5fd', '#38bdf8', '#34d399', '#fde047'],
+        ticks: 200,
+        gravity: 1.1,
+        scalar: 0.85,
+        shapes: ['circle', 'square'],
+        disableForReducedMotion: true,
+        zIndex: 9999,
+      });
+    } catch {
+      // Confetti is decorative; ignore canvas failures.
+    }
+    if (onSuccess) onSuccess(saved);
   };
 
   const handleReset = () => {
     setStatus('idle');
     setErrors({});
     setTouched({});
+    setSubmitError(null);
     setFormData({
       companyName: '',
       contactName: '',
@@ -512,6 +477,13 @@ export const EnterpriseContactModal: React.FC<EnterpriseContactModalProps> = ({
                   className="w-full min-h-[80px] bg-[#0b1c30] border border-[#334155] rounded-lg px-3.5 py-2.5 sm:py-3 text-sm text-[#F8FAFC] placeholder-[#8f9097] focus:outline-none focus:border-[#41e4c0]"
                 />
               </div>
+
+              {submitError && (
+                <p role="alert" className="flex items-center gap-1.5 text-xs text-rose-400">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{submitError}</span>
+                </p>
+              )}
 
               {/* Action Buttons */}
               <div className="pt-3 border-t border-[#334155] flex flex-col sm:flex-row items-center justify-between gap-3">
