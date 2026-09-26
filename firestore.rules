@@ -16,44 +16,118 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Stopgap until the role model lands: only the site owner's verified account may access applicant data.
-    function isSiteAdmin() {
-      return isSignedIn()
-        && request.auth.token.email == 'madhuka.m.gamage@gmail.com'
-        && request.auth.token.email_verified == true;
+    function userRole() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : null;
+    }
+
+    function isSuperAdmin() {
+      return userRole() == 'super_admin';
+    }
+
+    function isAdmissionsOfficer() {
+      return userRole() == 'admissions_officer';
+    }
+
+    function isStaff() {
+      return userRole() in ['super_admin', 'admissions_officer', 'lead_faculty', 'curriculum_mentor'];
+    }
+
+    function canManageApplications() {
+      return isSuperAdmin() || isAdmissionsOfficer();
+    }
+
+    function canManageInquiries() {
+      return isSuperAdmin() || isAdmissionsOfficer();
     }
 
     // Users Collection
     match /users/{userId} {
-      allow read: if isOwner(userId) || isSiteAdmin();
-      allow write: if isOwner(userId);
+      allow read: if isOwner(userId) || isStaff();
+
+      // Self-provisioning on first sign-in: owner may create their own doc,
+      // but cannot hand themselves a staff role.
+      allow create: if isOwner(userId) && !('role' in request.resource.data);
+
+      // Owner may update their own non-role fields; only a super_admin may
+      // change ANY user's role (including their own or someone else's).
+      allow update: if isSuperAdmin()
+        || (isOwner(userId) && request.resource.data.role == resource.data.role);
+
+      allow delete: if isOwner(userId) || isSuperAdmin();
     }
 
     // Applications Collection
     match /applications/{applicationId} {
-      allow read: if isSiteAdmin();
-      allow create: if true; // Allow students & applicants to submit enrollment forms
-      allow update, delete: if isSiteAdmin();
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isStaff());
+
+      allow create: if request.resource.data.keys().hasOnly([
+          'fullName', 'applicantName', 'name', 'candidateName', 'email', 'phone',
+          'courseId', 'courseTitle', 'background', 'experienceLevel',
+          'pythonProficiency', 'status', 'notes', 'userId', 'createdAt'
+        ])
+        && request.resource.data.keys().hasAll(['applicantName', 'email', 'courseId', 'userId', 'status', 'createdAt'])
+        && request.resource.data.applicantName is string && request.resource.data.applicantName.size() <= 200
+        && request.resource.data.email is string && request.resource.data.email.size() <= 200
+        && request.resource.data.courseId is string && request.resource.data.courseId.size() <= 100
+        && (!('notes' in request.resource.data) || (request.resource.data.notes is string && request.resource.data.notes.size() <= 1000))
+        && request.resource.data.status == 'submitted'
+        && request.resource.data.userId is string
+        && (request.auth == null ? request.resource.data.userId == 'guest_applicant' : request.resource.data.userId == request.auth.uid);
+
+      allow update: if canManageApplications();
+      allow delete: if isSuperAdmin();
     }
 
     // Enterprise Inquiries Collection
     match /enterpriseInquiries/{inquiryId} {
-      allow read: if isSiteAdmin();
-      allow create: if true; // Allow organizations and visitors to submit custom enterprise proposals
-      allow update, delete: if isSiteAdmin();
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || canManageInquiries());
+
+      allow create: if request.resource.data.keys().hasOnly([
+          'companyName', 'contactName', 'workEmail', 'phone', 'jobTitle',
+          'teamSize', 'primaryFocus', 'deliveryFormat', 'timeline',
+          'customRequirements', 'userId', 'createdAt'
+        ])
+        && request.resource.data.keys().hasAll(['companyName', 'contactName', 'workEmail', 'teamSize', 'userId', 'createdAt'])
+        && request.resource.data.companyName is string && request.resource.data.companyName.size() <= 250
+        && request.resource.data.contactName is string && request.resource.data.contactName.size() <= 200
+        && request.resource.data.workEmail is string && request.resource.data.workEmail.size() <= 200
+        && request.resource.data.teamSize is string && request.resource.data.teamSize.size() <= 100
+        && (!('customRequirements' in request.resource.data) || (request.resource.data.customRequirements is string && request.resource.data.customRequirements.size() <= 3000))
+        && request.resource.data.userId is string
+        && (request.auth == null ? request.resource.data.userId == 'guest_enterprise' : request.resource.data.userId == request.auth.uid);
+
+      allow update, delete: if canManageInquiries();
     }
 
     // Contact Messages Collection
     match /contactMessages/{messageId} {
-      allow read: if isSiteAdmin();
-      allow create: if true; // Allow visitors to submit contact inquiries
-      allow update, delete: if isSiteAdmin();
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || canManageInquiries());
+
+      allow create: if request.resource.data.keys().hasOnly(['name', 'email', 'inquiryType', 'message', 'userId', 'createdAt'])
+        && request.resource.data.keys().hasAll(['name', 'email', 'message', 'userId', 'createdAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 200
+        && request.resource.data.email is string && request.resource.data.email.size() <= 200
+        && request.resource.data.message is string && request.resource.data.message.size() <= 5000
+        && request.resource.data.inquiryType in ['corporate', 'academic', 'research', 'media']
+        && request.resource.data.userId is string
+        && (request.auth == null ? request.resource.data.userId == 'guest_contact' : request.resource.data.userId == request.auth.uid);
+
+      allow update, delete: if canManageInquiries();
     }
 
     // Application Workflows Collection
     match /application_workflows/{workflowId} {
-      allow read: if isSiteAdmin();
+      allow read: if isStaff();
       allow create: if true;
+      allow update, delete: if false;
+    }
+
+    // Admin Audit Logs Collection
+    match /adminAuditLogs/{logId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
       allow update, delete: if false;
     }
 

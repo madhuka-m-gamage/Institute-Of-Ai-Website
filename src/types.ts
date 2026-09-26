@@ -1,5 +1,31 @@
 export type Page = 'home' | 'about' | 'programs' | 'research' | 'contact' | 'admin';
 
+export type StaffRole = 'super_admin' | 'admissions_officer' | 'lead_faculty' | 'curriculum_mentor';
+
+export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
+  super_admin: 'Super Administrator',
+  admissions_officer: 'Admissions Officer',
+  lead_faculty: 'Lead Faculty',
+  curriculum_mentor: 'Curriculum Mentor',
+};
+
+export interface StaffUserProfile {
+  uid: string;
+  email: string;
+  role: StaffRole;
+  displayName?: string;
+  department?: string;
+  createdAt?: string;
+}
+
+export function canManageApplications(role: StaffRole | null): boolean {
+  return role === 'super_admin' || role === 'admissions_officer';
+}
+
+export function canManageInquiries(role: StaffRole | null): boolean {
+  return role === 'super_admin' || role === 'admissions_officer';
+}
+
 export interface CourseProgram {
   id: string;
   title: string;

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
-import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, getDoc, setDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, googleSignIn, emailPasswordSignIn, logout, initAuth } from '../lib/firebase';
-import { StudentApplication, ApplicationStatus, getCandidateName, getApplicationTimestamp, formatApplicationDate } from '../types';
+import { StudentApplication, ApplicationStatus, StaffRole, getCandidateName, getApplicationTimestamp, formatApplicationDate } from '../types';
 import {
   Shield,
   Database,
@@ -113,6 +113,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
   const [accessToken, setAccessToken] = useState<string>('');
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [staffRole, setStaffRole] = useState<StaffRole | null>(null);
+  const [roleCheckDone, setRoleCheckDone] = useState<boolean>(false);
   const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
   const [isEmailSigningIn, setIsEmailSigningIn] = useState<boolean>(false);
 
@@ -180,6 +182,52 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
     return () => unsubscribe();
   }, []);
 
+  // Resolve the signed-in user's real staff role from Firestore (the actual
+  // security boundary is firestore.rules; this gates the console UI to match).
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) {
+      setStaffRole(null);
+      setRoleCheckDone(false);
+      return;
+    }
+    setRoleCheckDone(false);
+    (async () => {
+      try {
+        const userDocRef = doc(db, 'users', user.uid);
+        const snap = await getDoc(userDocRef);
+        if (!snap.exists()) {
+          // Self-provision a bare profile doc (no role) on first sign-in so
+          // an existing admin can later find this person by email to grant
+          // access — matches firestore.rules' owner-only, role-less create.
+          try {
+            await setDoc(userDocRef, {
+              uid: user.uid,
+              email: user.email || '',
+              displayName: user.displayName || null,
+              createdAt: new Date().toISOString(),
+            });
+          } catch (provisionErr) {
+            console.warn('Could not self-provision users/{uid} doc:', provisionErr);
+          }
+        }
+        const role = snap.exists() ? (snap.data() as any).role : null;
+        const validRoles: StaffRole[] = ['super_admin', 'admissions_officer', 'lead_faculty', 'curriculum_mentor'];
+        if (!cancelled) {
+          setStaffRole(validRoles.includes(role) ? (role as StaffRole) : null);
+        }
+      } catch (err) {
+        console.error('Staff role check failed:', err);
+        if (!cancelled) {
+          setStaffRole(null); // fail closed
+        }
+      } finally {
+        if (!cancelled) setRoleCheckDone(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password) {
@@ -244,6 +292,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
       await logout();
       setUser(null);
       setAccessToken('');
+      setStaffRole(null);
+      setRoleCheckDone(false);
       setApplications([]);
       setEnterpriseInquiries([]);
       setMessages([]);
@@ -256,7 +306,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
   };
 
   const fetchRecords = async () => {
-    if (!user) return;
+    if (!user || !staffRole) return;
     setIsLoading(true);
     setStatusMessage('Syncing with Google Cloud Firestore collections...');
     try {
@@ -305,10 +355,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
   };
 
   useEffect(() => {
-    if (user) {
+    if (user && staffRole) {
       fetchRecords();
     }
-  }, [user]);
+  }, [user, staffRole]);
 
   const handleApplicationUpdated = (updatedApp: StudentApplication) => {
     setApplications(prev => {
@@ -557,7 +607,43 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
     );
   }
 
-  // 4. Authenticated & Authorized -> Render Multi-Tab Administrative Dashboard
+  // 3. Signed in, but the staff-role lookup hasn't resolved yet
+  if (!roleCheckDone) {
+    return <AdminPageFullSkeleton />;
+  }
+
+  // 4. Signed in, confirmed NOT a staff member -> Access Restricted
+  if (!staffRole) {
+    return (
+      <div className="w-full min-h-[80vh] flex items-center justify-center px-4 py-10 sm:py-14">
+        <ScrollReveal duration={600}>
+          <div className="w-full max-w-md p-6 sm:p-8 rounded-3xl bg-[#00172e] border border-red-500/30 shadow-2xl shadow-[#000f21]/90 text-center space-y-5">
+            <div className="w-14 h-14 rounded-2xl bg-[#102034] border border-red-500/40 flex items-center justify-center text-red-400 mx-auto shadow-lg shadow-red-500/10">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+                Access Restricted
+              </h2>
+              <p className="text-xs text-[#94a3b8] leading-relaxed">
+                Your account (<span className="text-[#F8FAFC]">{user.email}</span>) is signed in but
+                does not have administrative access to this console. Contact an existing
+                administrator if you believe this is a mistake.
+              </p>
+            </div>
+            <button
+              onClick={handleSignOut}
+              className="w-full min-h-[44px] py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 font-mono-caps text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+            >
+              Sign Out
+            </button>
+          </div>
+        </ScrollReveal>
+      </div>
+    );
+  }
+
+  // 5. Authenticated & Authorized -> Render Multi-Tab Administrative Dashboard
   return (
     <div className="w-full min-h-screen text-[#d3e4fe] py-8 sm:py-12 px-4 md:px-10 max-w-[1360px] mx-auto space-y-8">
       {/* Top Header */}
@@ -648,17 +734,19 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
           <span className="text-sm">Workspace Hub</span>
         </button>
 
-        <button
-          onClick={() => setMainTab('users')}
-          className={`py-3.5 px-4 rounded-xl text-xs font-mono-caps flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
-            mainTab === 'users'
-              ? 'bg-[#102034] text-[#41e4c0] font-bold border border-[#41e4c0]/40 shadow-lg shadow-[#41e4c0]/10'
-              : 'text-[#94a3b8] hover:text-white hover:bg-[#000f21]'
-          }`}
-        >
-          <UserCog className="w-4 h-4" />
-          <span className="text-sm">Staff & Roles</span>
-        </button>
+        {staffRole === 'super_admin' && (
+          <button
+            onClick={() => setMainTab('users')}
+            className={`py-3.5 px-4 rounded-xl text-xs font-mono-caps flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
+              mainTab === 'users'
+                ? 'bg-[#102034] text-[#41e4c0] font-bold border border-[#41e4c0]/40 shadow-lg shadow-[#41e4c0]/10'
+                : 'text-[#94a3b8] hover:text-white hover:bg-[#000f21]'
+            }`}
+          >
+            <UserCog className="w-4 h-4" />
+            <span className="text-sm">Staff & Roles</span>
+          </button>
+        )}
 
         <button
           onClick={() => setMainTab('audit')}
@@ -1443,8 +1531,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
       )}
 
       {/* TAB 3: USER MANAGEMENT */}
-      {mainTab === 'users' && (
-        <UserManagementPanel currentUser={user} onAddToast={onAddToast} />
+      {mainTab === 'users' && staffRole === 'super_admin' && (
+        <UserManagementPanel currentUser={user} currentStaffRole={staffRole} onAddToast={onAddToast} />
       )}
 
       {/* TAB 4: AUDIT TRAIL */}
