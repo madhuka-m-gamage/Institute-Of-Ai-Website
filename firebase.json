@@ -1,0 +1,8 @@
+{
+  "firestore": [
+    {
+      "database": "ioai-website",
+      "rules": "firestore.rules"
+    }
+  ]
+}
