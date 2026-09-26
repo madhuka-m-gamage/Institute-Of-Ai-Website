@@ -3,16 +3,15 @@ import confetti from 'canvas-confetti';
 import { collection, addDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { COURSES } from '../data/mockData';
-import { processApplicationWorkflow, WorkflowResult } from '../services/applicationWorkflow';
 import { AnimatedSuccessCheckmark } from './AnimatedSuccessCheckmark';
-import { X, CheckCircle, ShieldCheck, Cpu, Mail, Sparkles, Check, Send, AlertCircle } from 'lucide-react';
+import { X, Cpu, Sparkles, Send, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ApplyModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedCourseId?: string;
-  onApplicationSuccess?: (info: { courseTitle: string; email: string; emailSubject: string }) => void;
+  onApplicationSuccess?: (info: { courseTitle: string; email: string }) => void;
 }
 
 export const ApplyModal: React.FC<ApplyModalProps> = ({
@@ -27,7 +26,6 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
   const [phone, setPhone] = useState('');
   const [experience, setExperience] = useState('Intermediate');
   const [status, setStatus] = useState<'idle' | 'processing' | 'success'>('idle');
-  const [workflowResult, setWorkflowResult] = useState<WorkflowResult | null>(null);
 
   // Validation State
   const [errors, setErrors] = useState<{ name?: string; email?: string; phone?: string }>({});
@@ -179,25 +177,10 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
         console.warn('Applications collection save note:', firestoreErr);
       }
 
-      // 2. Trigger Gemini AI Application Workflow Backend Service
-      const result = await processApplicationWorkflow({
-        applicantName: sanitizedName,
-        fullName: sanitizedName,
-        name: sanitizedName,
-        email: sanitizedEmail,
-        phone: sanitizedPhone,
-        courseId,
-        courseTitle: selectedCourse.title,
-        experience,
-        notes: `Phone: ${sanitizedPhone}`,
-      });
-
-      setWorkflowResult(result);
       if (onApplicationSuccess) {
         onApplicationSuccess({
           courseTitle: selectedCourse.title,
           email: sanitizedEmail,
-          emailSubject: result.emailSubject,
         });
       }
     } catch (err) {
@@ -222,7 +205,7 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
           <div className="flex items-center gap-2">
             <Cpu className="w-5 h-5 text-[#41e4c0] shrink-0" />
             <span className="font-mono-caps text-xs sm:text-sm font-bold text-[#F8FAFC] uppercase tracking-wider">
-              Enrollment & Agentic Workflow
+              Program Application
             </span>
           </div>
           <button
@@ -240,73 +223,13 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
             <div className="flex items-start sm:items-center gap-3.5 bg-[#41e4c0]/10 border border-[#41e4c0]/40 p-3.5 sm:p-4 rounded-lg">
               <AnimatedSuccessCheckmark size={42} className="shrink-0" />
               <div>
-                <h3 className="text-sm sm:text-base font-bold text-[#F8FAFC]">Application Submitted & AI Workflow Executed</h3>
+                <h3 className="text-sm sm:text-base font-bold text-[#F8FAFC]">Application Received</h3>
                 <p className="text-xs text-[#94a3b8]">
                   Candidate <span className="text-[#41e4c0]">{email}</span> registered for{' '}
                   <span className="text-[#F8FAFC]">{selectedCourse.title}</span>.
                 </p>
               </div>
             </div>
-
-            {/* AI Generated Confirmation Email Preview */}
-            {workflowResult && (
-              <div className="space-y-4">
-                <div className="border border-[#334155] rounded-lg bg-[#0b1c30] p-3.5 sm:p-4 space-y-2.5">
-                  <div className="flex items-center justify-between border-b border-[#1e293b] pb-2">
-                    <div className="flex items-center gap-1.5 text-xs font-mono-caps text-[#41e4c0]">
-                      <Mail className="w-3.5 h-3.5" />
-                      <span>GENERATED CONFIRMATION EMAIL</span>
-                    </div>
-                    <span className="text-[10px] bg-[#41e4c0]/20 text-[#41e4c0] px-2 py-0.5 rounded font-mono-caps">
-                      DISPATCH QUEUED
-                    </span>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] text-[#8f9097] uppercase font-mono-caps block">Subject</label>
-                    <div className="text-xs font-bold text-[#F8FAFC] font-sans">{workflowResult.emailSubject}</div>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] text-[#8f9097] uppercase font-mono-caps block mb-1">Body</label>
-                    <div className="text-xs text-[#cbd5e1] leading-relaxed font-sans whitespace-pre-wrap bg-[#071322] p-3 rounded border border-[#1e293b]">
-                      {workflowResult.emailBody}
-                    </div>
-                  </div>
-                </div>
-
-                {/* AI Evaluation Analysis */}
-                {workflowResult.applicantAnalysis && (
-                  <div className="border border-[#41e4c0]/30 rounded-lg bg-[#091829] p-3.5 sm:p-4 space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-[#41e4c0] font-mono-caps">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>ADMISSIONS CANDIDATE ANALYSIS</span>
-                      </div>
-                      <div className="text-xs font-mono-caps text-[#F8FAFC]">
-                        Readiness Score: <span className="text-[#41e4c0] font-bold">{workflowResult.applicantAnalysis.readinessScore}/100</span>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-[#94a3b8]">
-                      {workflowResult.applicantAnalysis.proficiencyEvaluation}
-                    </p>
-
-                    <div>
-                      <div className="text-[10px] text-[#41e4c0] font-mono-caps uppercase mb-1">Recommended Onboarding Steps</div>
-                      <ul className="space-y-1">
-                        {workflowResult.applicantAnalysis.customizedRecommendations?.map((rec, i) => (
-                          <li key={i} className="text-xs text-[#cbd5e1] flex items-start gap-2">
-                            <Check className="w-3.5 h-3.5 text-[#41e4c0] shrink-0 mt-0.5" />
-                            <span>{rec}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
 
             <button
               onClick={() => {
@@ -443,12 +366,12 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
                 {status === 'processing' ? (
                   <>
                     <span className="w-4 h-4 border-2 border-[#031427] border-t-transparent rounded-full animate-spin" />
-                    <span>Executing AI Workflow...</span>
+                    <span>Submitting...</span>
                   </>
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    <span>Submit & Run AI Workflow</span>
+                    <span>Submit Application</span>
                   </>
                 )}
               </button>
