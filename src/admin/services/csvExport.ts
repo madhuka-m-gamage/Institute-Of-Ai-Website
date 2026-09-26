@@ -14,7 +14,10 @@ export interface CsvExportOptions {
  */
 export function escapeCsvCell(value: any): string {
   if (value === null || value === undefined) return '""';
-  const str = String(value);
+  let str = String(value);
+  // Applicant input is public: a leading = + - @ tab or CR would run as a spreadsheet formula,
+  // so prefix an apostrophe to force it to be read as text (OWASP CSV injection guidance).
+  if (/^[=+\-@\t\r]/.test(str)) str = `'${str}`;
   // If cell contains commas, quotes, or newlines, wrap in quotes and escape internal quotes by doubling them
   const escaped = str.replace(/"/g, '""');
   return `"${escaped}"`;

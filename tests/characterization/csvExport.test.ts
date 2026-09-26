@@ -1,18 +1,27 @@
 import { describe, it, expect } from 'vitest';
 import { escapeCsvCell, formatCsvDate, generateCandidateCsv } from '../../src/admin/services/csvExport';
 
-describe('CHARACTERIZATION CSV formula injection — ADM-7, flips in Charge Q10', () => {
+describe('CSV formula injection — ADM-7 (Q10)', () => {
   it('quotes and doubles quotes (RFC 4180)', () => {
     expect(escapeCsvCell('a "b", c')).toBe('"a ""b"", c"');
   });
-  it.each(['=HYPERLINK("http://evil")', '+1+1', '-2+3', '@SUM(A1)'])('BUG: leaves leading formula char in %s', (v) => {
-    expect(escapeCsvCell(v).startsWith(`"${v[0]}`)).toBe(true);
+  it.each(['=HYPERLINK("http://evil")', '+1+1', '-2+3', '@SUM(A1)', '\t=1+1', '\r=1+1'])(
+    'neutralizes a leading formula character in %j with an apostrophe',
+    (v) => {
+      expect(escapeCsvCell(v).startsWith(`"'${v[0]}`)).toBe(true);
+    }
+  );
+  it('leaves ordinary values untouched', () => {
+    expect(escapeCsvCell('Ada Lovelace')).toBe('"Ada Lovelace"');
+    expect(escapeCsvCell(42)).toBe('"42"');
+    expect(escapeCsvCell('a=b')).toBe('"a=b"');
   });
-  it('BUG: applicant-supplied formula reaches the generated CSV verbatim', () => {
+  it('neutralizes an applicant-supplied formula in the generated CSV', () => {
     const { csvString } = generateCandidateCsv([
       { id: 'a1', fullName: '=cmd|"/c calc"!A1', email: 'e@x.com', courseId: 'c', status: 'submitted' } as any,
     ]);
-    expect(csvString).toContain('"=cmd|""/c calc""!A1"');
+    expect(csvString).toContain('"\'=cmd|""/c calc""!A1"');
+    expect(csvString).not.toContain('"=cmd');
   });
 });
 
