@@ -48,16 +48,16 @@ import {
 } from 'lucide-react';
 import { ScrollReveal } from '../ui/ScrollReveal';
 import { motion, AnimatePresence } from 'motion/react';
-import { UserManagementPanel } from '../components/UserManagementPanel';
-import { AdminAuditTrailPanel } from '../components/AdminAuditTrailPanel';
-import { RecentActivityPanel } from '../components/RecentActivityPanel';
-import { ApplicationDetailModal } from '../components/ApplicationDetailModal';
-import { EnterpriseInquiryModal } from '../components/EnterpriseInquiryModal';
-import { BulkEmailModal } from '../components/BulkEmailModal';
-import { BulkStatusModal } from '../components/BulkStatusModal';
-import { CandidateExportModal } from '../components/CandidateExportModal';
-import { StatusBadge } from '../components/StatusBadge';
-import { AdminNotificationBell } from '../components/AdminNotificationBell';
+import { UserManagementPanel } from './components/UserManagementPanel';
+import { AdminAuditTrailPanel } from './components/AdminAuditTrailPanel';
+import { RecentActivityPanel } from './components/RecentActivityPanel';
+import { ApplicationDetailModal } from './components/ApplicationDetailModal';
+import { EnterpriseInquiryModal } from './components/EnterpriseInquiryModal';
+import { BulkEmailModal } from './components/BulkEmailModal';
+import { BulkStatusModal } from './components/BulkStatusModal';
+import { CandidateExportModal } from './components/CandidateExportModal';
+import { StatusBadge } from './components/StatusBadge';
+import { AdminNotificationBell } from './components/AdminNotificationBell';
 import { AdminPageFullSkeleton, AdminListSkeleton } from '../ui/Skeleton';
 import { AdminNotification } from '../types';
 

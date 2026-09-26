@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { db } from '../lib/firebase';
+import { db } from '../../lib/firebase';
 import { collection, query, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
-import { StudentApplication, ApplicationStatus, getCandidateName, getApplicationTimestamp } from '../types';
+import { StudentApplication, ApplicationStatus, getCandidateName, getApplicationTimestamp } from '../../types';
 import { StatusBadge } from './StatusBadge';
-import { ListItemSkeleton } from '../ui/Skeleton';
+import { ListItemSkeleton } from '../../ui/Skeleton';
 import {
   Activity,
   History,

@@ -1,4 +1,4 @@
-import { StudentApplication, getCandidateName } from '../types';
+import { StudentApplication, getCandidateName } from '../../types';
 
 export interface CsvExportOptions {
   filename?: string;

@@ -87,6 +87,10 @@ Backlog rows written before Regroup use the old paths; read them through this ma
 | `src/components/{ScrollReveal,Skeleton,Toast,AnimatedSuccessCheckmark,ProgressBar,BackToTop}.tsx` | `src/ui/` | 1 |
 | `src/pages/{Home,About,Programs,Research,Contact}Page.tsx` | `src/site/pages/` | 2 |
 | `src/components/{Navbar,Footer,SearchModal,ApplyModal,EnterpriseContactModal,ContactFAQ,ThreeBackground}.tsx` | `src/site/components/` | 2 |
+| `src/pages/AdminPage.tsx` | `src/admin/AdminPage.tsx` | 3 |
+| `src/components/{AdminAuditTrailPanel,AdminNotificationBell,ApplicationDetailModal,BulkEmailModal,BulkStatusModal,CandidateExportModal,EnterpriseInquiryModal,RecentActivityPanel,UserManagementPanel,StatusBadge,EmailRichPreview}.tsx` | `src/admin/components/` | 3 |
+| `src/services/{auditLog,csvExport,pdfDocuments}.ts` | `src/admin/services/` | 3 |
+| `src/services/workspace.ts` | `src/admin/services/gmail.ts` | 3 |
 
 ## Open questions for human
 

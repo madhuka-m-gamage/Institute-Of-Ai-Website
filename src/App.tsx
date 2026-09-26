@@ -17,7 +17,7 @@ import { ContactPage } from './site/pages/ContactPage';
 import { AdminPageFullSkeleton } from './ui/Skeleton';
 
 // Loaded on demand so public visitors don't download the admin console.
-const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })));
+const AdminPage = lazy(() => import('./admin/AdminPage').then((m) => ({ default: m.AdminPage })));
 
 function getInitialPage(): Page {
   // Check pathname first (e.g. /home, /programs, /about, /contact, /admin)

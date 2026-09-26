@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
-import { StudentApplication, getCandidateName } from '../types';
-import { COURSES } from '../data/mockData';
+import { StudentApplication, getCandidateName } from '../../types';
+import { COURSES } from '../../data/mockData';
 
 export interface AttachableDocument {
   id: string;

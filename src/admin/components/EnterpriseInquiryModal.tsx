@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { logAdminAction } from '../services/auditLog';
-import { sendGmailMessage } from '../services/workspace';
+import { sendGmailMessage } from '../services/gmail';
 import { EmailRichPreview } from './EmailRichPreview';
 import {
   X,

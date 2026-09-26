@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { escapeCsvCell, formatCsvDate, generateCandidateCsv } from '../../src/services/csvExport';
+import { escapeCsvCell, formatCsvDate, generateCandidateCsv } from '../../src/admin/services/csvExport';
 
 describe('CHARACTERIZATION CSV formula injection — ADM-7, flips in Charge Q10', () => {
   it('quotes and doubles quotes (RFC 4180)', () => {
