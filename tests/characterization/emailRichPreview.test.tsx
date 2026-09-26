@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
-import { EmailRichPreview } from '../../src/components/EmailRichPreview';
+import { EmailRichPreview } from '../../src/admin/components/EmailRichPreview';
 
 afterEach(() => {
   cleanup();

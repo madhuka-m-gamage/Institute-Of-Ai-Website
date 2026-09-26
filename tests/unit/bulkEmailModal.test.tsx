@@ -10,21 +10,21 @@ const { sendGmailMessage, updateDoc, batchCommit } = vi.hoisted(() => ({
 
 const { clearGmailSendToken } = vi.hoisted(() => ({ clearGmailSendToken: vi.fn() }));
 vi.mock('../../src/lib/firebase', () => ({ db: {}, getGmailSendToken: vi.fn(async () => 'tok'), clearGmailSendToken }));
-vi.mock('../../src/services/auditLog', () => ({ logAdminAction: vi.fn(async () => undefined) }));
-vi.mock('../../src/services/workspace', () => ({ sendGmailMessage }));
+vi.mock('../../src/admin/services/auditLog', () => ({ logAdminAction: vi.fn(async () => undefined) }));
+vi.mock('../../src/admin/services/gmail', () => ({ sendGmailMessage }));
 vi.mock('firebase/firestore', () => ({
   doc: (_db: unknown, coll: string, id: string) => `${coll}/${id}`,
   updateDoc,
   writeBatch: () => ({ update: vi.fn(), commit: batchCommit }),
 }));
-vi.mock('../../src/services/pdfDocuments', () => ({
+vi.mock('../../src/admin/services/pdfDocuments', () => ({
   getAvailableDocumentsForProgram: () => [],
   generateProgramPDF: () => ({ filename: 'doc.pdf', mimeType: 'application/pdf', dataBase64: 'QQ==' }),
   downloadProgramPDF: vi.fn(),
   resolveProgramDetails: () => ({ id: 'c1', title: 'AI Course' }),
 }));
 
-import { BulkEmailModal } from '../../src/components/BulkEmailModal';
+import { BulkEmailModal } from '../../src/admin/components/BulkEmailModal';
 import type { StudentApplication } from '../../src/types';
 
 const app = (id: string, email: string): StudentApplication =>

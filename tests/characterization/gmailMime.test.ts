@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { sendGmailMessage } from '../../src/services/workspace';
+import { sendGmailMessage } from '../../src/admin/services/gmail';
 
 function captureRaw() {
   const fetchMock = vi.fn(async () => new Response('{"id":"m1"}', { status: 200 }));

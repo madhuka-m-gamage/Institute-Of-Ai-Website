@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { db, getGmailSendToken, clearGmailSendToken } from '../lib/firebase';
+import { db, getGmailSendToken, clearGmailSendToken } from '../../lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { logAdminAction } from '../services/auditLog';
-import { StudentApplication, ApplicationStatus, getCandidateName } from '../types';
-import { sendGmailMessage, EmailAttachmentPayload } from '../services/workspace';
+import { StudentApplication, ApplicationStatus, getCandidateName } from '../../types';
+import { sendGmailMessage, EmailAttachmentPayload } from '../services/gmail';
 import {
   getAvailableDocumentsForProgram,
   generateProgramPDF,

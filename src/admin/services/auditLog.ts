@@ -1,6 +1,6 @@
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
-import { AdminAuditLog, ApplicationStatus } from '../types';
+import { db, auth } from '../../lib/firebase';
+import { AdminAuditLog, ApplicationStatus } from '../../types';
 
 export interface AuditEntry {
   action: string;

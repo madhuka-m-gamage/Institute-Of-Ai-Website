@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../lib/firebase';
+import { db } from '../../lib/firebase';
 import { collection, onSnapshot, query, orderBy, limit, doc, updateDoc, writeBatch } from 'firebase/firestore';
-import { AdminNotification } from '../types';
+import { AdminNotification } from '../../types';
 import {
   Bell,
   BellRing,

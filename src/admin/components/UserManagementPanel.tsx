@@ -9,8 +9,8 @@ import {
   deleteField,
   doc,
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { StaffRole, STAFF_ROLE_LABELS } from '../types';
+import { db } from '../../lib/firebase';
+import { StaffRole, STAFF_ROLE_LABELS } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ShieldCheck,

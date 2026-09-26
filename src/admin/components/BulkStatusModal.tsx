@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { db } from '../lib/firebase';
+import { db } from '../../lib/firebase';
 import { doc, writeBatch } from 'firebase/firestore';
 import { logAdminAction } from '../services/auditLog';
-import { StudentApplication, ApplicationStatus, getCandidateName } from '../types';
+import { StudentApplication, ApplicationStatus, getCandidateName } from '../../types';
 import { StatusBadge } from './StatusBadge';
 import {
   Layers,

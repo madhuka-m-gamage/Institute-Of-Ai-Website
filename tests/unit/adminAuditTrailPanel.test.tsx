@@ -11,9 +11,9 @@ vi.mock('firebase/firestore', () => ({
   getDocs: (...a: unknown[]) => getDocs(...a),
 }));
 vi.mock('../../src/lib/firebase', () => ({ db: {} }));
-vi.mock('../../src/components/RecentActivityPanel', () => ({ RecentActivityPanel: () => null }));
+vi.mock('../../src/admin/components/RecentActivityPanel', () => ({ RecentActivityPanel: () => null }));
 
-import { AdminAuditTrailPanel } from '../../src/components/AdminAuditTrailPanel';
+import { AdminAuditTrailPanel } from '../../src/admin/components/AdminAuditTrailPanel';
 
 afterEach(() => {
   cleanup();
