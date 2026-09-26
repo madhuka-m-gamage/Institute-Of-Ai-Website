@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
 import { collection, addDoc } from 'firebase/firestore';
-import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
-import { EnterpriseInquiry } from '../types';
-import { AnimatedSuccessCheckmark } from '../ui/AnimatedSuccessCheckmark';
+import { db, auth, handleFirestoreError, OperationType } from '../../lib/firebase';
+import { EnterpriseInquiry } from '../../types';
+import { AnimatedSuccessCheckmark } from '../../ui/AnimatedSuccessCheckmark';
 import { X, Building2, CheckCircle, Send, Sparkles, Clock, ShieldCheck, Phone, Mail, User, Layers, ArrowRight, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 

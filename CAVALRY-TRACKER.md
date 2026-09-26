@@ -85,6 +85,8 @@ Backlog rows written before Regroup use the old paths; read them through this ma
 | Old path | New path | Group |
 |---|---|---|
 | `src/components/{ScrollReveal,Skeleton,Toast,AnimatedSuccessCheckmark,ProgressBar,BackToTop}.tsx` | `src/ui/` | 1 |
+| `src/pages/{Home,About,Programs,Research,Contact}Page.tsx` | `src/site/pages/` | 2 |
+| `src/components/{Navbar,Footer,SearchModal,ApplyModal,EnterpriseContactModal,ContactFAQ,ThreeBackground}.tsx` | `src/site/components/` | 2 |
 
 ## Open questions for human
 

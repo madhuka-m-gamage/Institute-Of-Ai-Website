@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { COURSES, FACULTY, RESEARCH_PAPERS } from '../data/mockData';
-import { Page } from '../types';
+import { COURSES, FACULTY, RESEARCH_PAPERS } from '../../data/mockData';
+import { Page } from '../../types';
 import { Search, X, ArrowRight, BookOpen, User, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
 
