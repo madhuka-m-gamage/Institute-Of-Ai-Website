@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { StudentApplication, getCandidateName } from '../../types';
+import { StudentApplication, CourseProgram, getCandidateName } from '../../types';
 import { COURSES } from '../../data/mockData';
 
 export interface AttachableDocument {
@@ -7,7 +7,7 @@ export interface AttachableDocument {
   name: string;
   filename: string;
   description: string;
-  category: 'syllabus' | 'welcome_guide' | 'grant_letter' | 'enterprise_blueprint';
+  category: 'syllabus' | 'welcome_guide' | 'grant_letter';
   badge: string;
   defaultAttached: boolean;
   sizeEstimate: string;
@@ -15,35 +15,29 @@ export interface AttachableDocument {
 }
 
 /**
- * Resolves the course details matching the application's program.
+ * Resolves the applicant's course: exact course id first, then exact (case-insensitive) title.
+ * Returns undefined rather than guessing, so an official PDF never describes the wrong course.
  */
-export function resolveProgramDetails(courseTitleOrId?: string) {
-  if (!courseTitleOrId) return COURSES[0];
-  const query = courseTitleOrId.toLowerCase().trim();
-
-  // Try matching by exact ID or substring in title
-  const found = COURSES.find(
-    (c) =>
-      c.id.toLowerCase() === query ||
-      c.title.toLowerCase().includes(query) ||
-      query.includes(c.title.toLowerCase()) ||
-      (c.badge && query.includes(c.badge.toLowerCase()))
+export function resolveProgramDetails(courseId?: string, courseTitle?: string): CourseProgram | undefined {
+  const id = courseId?.trim().toLowerCase();
+  const title = courseTitle?.trim().toLowerCase();
+  return (
+    (id ? COURSES.find((c) => c.id.toLowerCase() === id) : undefined) ||
+    (title ? COURSES.find((c) => c.title.toLowerCase() === title) : undefined)
   );
-
-  return found || COURSES[0];
 }
 
 /**
  * Returns available pre-defined PDF documents tailored to the candidate's chosen program.
  */
 export function getAvailableDocumentsForProgram(
-  courseTitleOrId?: string,
+  courseId?: string,
+  courseTitle?: string,
   candidateStatus?: string
 ): AttachableDocument[] {
-  const course = resolveProgramDetails(courseTitleOrId);
+  const course = resolveProgramDetails(courseId, courseTitle);
+  if (!course) return [];
   const isAccepted = candidateStatus === 'accepted';
-  const isGrant = candidateStatus === 'grant';
-  const isEnterprise = course.id === 'enterprise-custom' || (courseTitleOrId && courseTitleOrId.toLowerCase().includes('enterprise'));
 
   const docs: AttachableDocument[] = [];
 
@@ -82,25 +76,10 @@ export function getAvailableDocumentsForProgram(
     description: `Formal scholarship award confirmation, industry co-sponsorship details, and tuition invoice breakdown.`,
     category: 'grant_letter',
     badge: 'Tuition Grant',
-    defaultAttached: isGrant,
+    defaultAttached: false,
     sizeEstimate: '140 KB',
     programTitle: course.title,
   });
-
-  // 4. If Enterprise track or Corporate inquiry, provide Executive AI Blueprint
-  if (isEnterprise) {
-    docs.push({
-      id: `enterprise-${course.id}`,
-      name: `Corporate AI Transformation Blueprint`,
-      filename: `IoAI-Corporate-AI-Transformation-Blueprint.pdf`,
-      description: `Executive roadmap, proprietary departmental workflow audits, team Custom Gems architecture & enterprise governance.`,
-      category: 'enterprise_blueprint',
-      badge: 'Executive Blueprint',
-      defaultAttached: true,
-      sizeEstimate: '310 KB',
-      programTitle: course.title,
-    });
-  }
 
   return docs;
 }
@@ -119,7 +98,10 @@ export function generateProgramPDF(
   });
 
   const candidateName = getCandidateName(application);
-  const course = resolveProgramDetails(application.courseTitle || (application as any).courseName);
+  const course = resolveProgramDetails(application.courseId, application.courseTitle || (application as any).courseName);
+  if (!course) {
+    throw new Error(`Unknown course "${application.courseId || application.courseTitle}" — no official document generated`);
+  }
   const now = new Date();
   const dateString = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const refId = `IOAI-${course.id.toUpperCase().substring(0, 4)}-${application.id?.substring(0, 6).toUpperCase() || 'REF'}`;
@@ -452,8 +434,12 @@ export function generateProgramPDF(
     return { filename, mimeType: 'application/pdf', dataBase64, blob, dataUrl: dataUri };
   }
 
+  if (!docId.startsWith('grant')) {
+    throw new Error(`Unknown document type: ${docId}`);
+  }
+
   // -------------------------------------------------------------
-  // DOCUMENT 3: TUITION GRANT / SCHOLARSHIP OR ENTERPRISE BLUEPRINT
+  // DOCUMENT 3: TUITION GRANT / SCHOLARSHIP SCHEDULE
   // -------------------------------------------------------------
   drawHeader('ACADEMIC TUITION GRANT & SPONSORSHIP SCHEDULE', `Tuition Schedule • ${course.title}`);
 

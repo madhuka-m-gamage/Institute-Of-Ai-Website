@@ -84,13 +84,15 @@ export const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
   // Available and Selected PDF Documents tailored to applicant's program
   const availableDocs = useMemo(() => {
     return getAvailableDocumentsForProgram(
+      application.courseId,
       application.courseTitle || (application as any).courseName,
       status
     );
-  }, [application.courseTitle, (application as any).courseName, status]);
+  }, [application.courseId, application.courseTitle, (application as any).courseName, status]);
 
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>(() => {
     return getAvailableDocumentsForProgram(
+      application.courseId,
       application.courseTitle || (application as any).courseName,
       application.status || 'submitted'
     )
@@ -265,19 +267,19 @@ export const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
     }
   };
 
-  const handleSaveReview = async () => {
-    setIsUpdating(true);
-    try {
-      const appRef = doc(db, 'applications', application.id);
-      const updatePayload = {
-        status,
-        notes: internalNotes,
-        reviewedAt: new Date().toISOString(),
-        reviewedBy: currentAdminEmail,
-      };
+  // Persists the reviewed status (and notes, only if edited, so another admin's notes aren't overwritten).
+  // Returns the saved fields, or null when nothing changed.
+  const persistReview = async (): Promise<Partial<StudentApplication> | null> => {
+    const payload: Partial<StudentApplication> = {};
+    if (status !== (application.status || 'submitted')) payload.status = status;
+    if (internalNotes !== (application.notes || '')) payload.notes = internalNotes;
+    if (Object.keys(payload).length === 0) return null;
 
-      await updateDoc(appRef, updatePayload);
+    payload.reviewedAt = new Date().toISOString();
+    payload.reviewedBy = currentAdminEmail;
+    await updateDoc(doc(db, 'applications', application.id), payload);
 
+    if (payload.status) {
       await logAdminAction({
         action: `Updated applicant status to ${status.toUpperCase()}`,
         entityType: 'application',
@@ -290,14 +292,15 @@ export const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
         newStatus: status,
         activityType: 'status_change',
       });
+    }
+    return payload;
+  };
 
-      const updated: StudentApplication = {
-        ...application,
-        ...updatePayload,
-        fullName: candidateName,
-      };
-
-      onStatusUpdated(updated);
+  const handleSaveReview = async () => {
+    setIsUpdating(true);
+    try {
+      const saved = await persistReview();
+      onStatusUpdated({ ...application, ...saved, fullName: candidateName });
       if (onAddToast) {
         onAddToast('Application Updated', `Status updated to ${status.replace('_', ' ').toUpperCase()}`, 'success');
       }
@@ -325,6 +328,16 @@ export const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
 
     setIsSendingEmail(true);
     try {
+      // 1. Save the status first, so a letter never goes out for a decision that isn't recorded.
+      let saved: Partial<StudentApplication> | null;
+      try {
+        saved = await persistReview();
+      } catch (err: any) {
+        console.error('Could not save status before sending:', err);
+        if (onAddToast) onAddToast('Letter Not Sent', `Could not save the new status, so no email was sent: ${err.message || 'Firestore error'}`, 'error');
+        return;
+      }
+
       // Sanitize body and subject from any variable placeholders
       const finalSubject = customSubject
         .replace(/\{\{\s*(candidate_name|candidateName|name|applicantName|applicant_name)\s*\}\}/gi, candidateName)
@@ -355,17 +368,37 @@ export const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
         }
       }
 
-      // 2. Dispatch via workspace Gmail API service with attachments
-      await sendGmailMessage(accessToken, application.email, finalSubject, finalBody, attachmentsPayload);
+      // 2. Send via Gmail
+      try {
+        await sendGmailMessage(accessToken, application.email, finalSubject, finalBody, attachmentsPayload);
+      } catch (err: any) {
+        console.error('Error dispatching decision letter:', err);
+        if (onAddToast) onAddToast('Email Dispatch Error', err.message || 'Could not send email via Gmail API', 'error');
+        if (saved) onStatusUpdated({ ...application, ...saved, fullName: candidateName });
+        return;
+      }
 
-      // 3. Mark decision letter sent in Firestore
-      const appRef = doc(db, 'applications', application.id);
-      await updateDoc(appRef, {
+      // 3. Record the letter. The email has already gone, so a failure here must not read as "not sent".
+      const letterFields = {
         decisionLetterSent: true,
         lastDecisionEmailAt: new Date().toISOString(),
         lastDecisionStatus: status,
         lastAttachedFiles: attachedDocNames,
-      });
+      };
+      try {
+        await updateDoc(doc(db, 'applications', application.id), letterFields);
+      } catch (err: any) {
+        console.error('Decision letter sent but not recorded:', err);
+        if (onAddToast) {
+          onAddToast(
+            'Email Sent — Not Recorded',
+            `The letter was sent to ${application.email}, but recording it failed (${err.message || 'Firestore error'}). Do not resend; update the record manually.`,
+            'error'
+          );
+        }
+        onStatusUpdated({ ...application, ...saved, fullName: candidateName });
+        return;
+      }
 
       // 4. Log audit entry
       await logAdminAction({
@@ -390,11 +423,7 @@ export const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
           'success'
         );
       }
-    } catch (err: any) {
-      console.error('Error dispatching decision letter:', err);
-      if (onAddToast) {
-        onAddToast('Email Dispatch Error', err.message || 'Could not send email via Gmail API', 'error');
-      }
+      onStatusUpdated({ ...application, ...saved, ...letterFields, fullName: candidateName });
     } finally {
       setIsSendingEmail(false);
     }

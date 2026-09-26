@@ -215,7 +215,8 @@ export const BulkEmailModal: React.FC<BulkEmailModalProps> = ({
   // Available attachments for the current preview recipient
   const previewAttachmentsList = useMemo(() => {
     if (!currentPreviewApp) return [];
-    const course = resolveProgramDetails(currentPreviewApp.courseTitle || (currentPreviewApp as any).courseName);
+    const course = resolveProgramDetails(currentPreviewApp.courseId, currentPreviewApp.courseTitle || (currentPreviewApp as any).courseName);
+    if (!course) return [];
     const attachments = [];
 
     if (includeSyllabusPdf) {

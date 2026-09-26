@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { db } from '../../lib/firebase';
-import { doc, writeBatch } from 'firebase/firestore';
+import { doc, writeBatch, runTransaction } from 'firebase/firestore';
 import { logAdminAction } from '../services/auditLog';
 import { StudentApplication, ApplicationStatus, getCandidateName } from '../../types';
 import { StatusBadge } from './StatusBadge';
@@ -14,6 +14,8 @@ import {
   FileText,
   Users
 } from 'lucide-react';
+
+const BATCH_LIMIT = 500;
 
 interface BulkStatusModalProps {
   isOpen: boolean;
@@ -42,56 +44,69 @@ export const BulkStatusModal: React.FC<BulkStatusModalProps> = ({
     if (selectedApplications.length === 0) return;
 
     setIsUpdating(true);
+    const total = selectedApplications.length;
+    const statusFields = {
+      status: targetStatus,
+      reviewedAt: new Date().toISOString(),
+      reviewedBy: currentAdminEmail,
+    };
+    const note = batchNotes.trim();
+    const updatedList: StudentApplication[] = [];
+    let failure: unknown = null;
+
     try {
-      const batch = writeBatch(db);
-      const timestamp = new Date().toISOString();
-      const updatedList: StudentApplication[] = [];
+      if (note) {
+        // Appending reads the stored notes in a transaction, so edits made since this page loaded aren't lost.
+        for (const app of selectedApplications) {
+          const ref = doc(db, 'applications', app.id);
+          let notes = '';
+          await runTransaction(db, async (tx) => {
+            const snap = await tx.get(ref);
+            const current = (snap.exists() && (snap.data() as { notes?: unknown }).notes) || '';
+            notes = `${typeof current === 'string' && current ? current + '\n\n' : ''}[Batch Update]: ${note}`;
+            tx.update(ref, { ...statusFields, notes });
+          });
+          updatedList.push({ ...app, ...statusFields, notes });
+        }
+      } else {
+        // Status-only updates go in batches; Firestore rejects more than 500 writes in one.
+        for (let i = 0; i < total; i += BATCH_LIMIT) {
+          const chunk = selectedApplications.slice(i, i + BATCH_LIMIT);
+          const batch = writeBatch(db);
+          chunk.forEach((app) => batch.update(doc(db, 'applications', app.id), statusFields));
+          await batch.commit();
+          chunk.forEach((app) => updatedList.push({ ...app, ...statusFields }));
+        }
+      }
+    } catch (err) {
+      console.error('Bulk status update error:', err);
+      failure = err;
+    }
 
-      selectedApplications.forEach((app) => {
-        const appRef = doc(db, 'applications', app.id);
-        const updateData = {
-          status: targetStatus,
-          notes: batchNotes ? `${app.notes ? app.notes + '\n\n' : ''}[Batch Update]: ${batchNotes}` : app.notes || '',
-          reviewedAt: timestamp,
-          reviewedBy: currentAdminEmail,
-        };
-
-        batch.update(appRef, updateData);
-
-        updatedList.push({
-          ...app,
-          ...updateData,
-        });
-      });
-
-      await batch.commit();
-
+    if (updatedList.length > 0) {
       await logAdminAction({
-        action: `Bulk Status Update: ${selectedApplications.length} candidate(s) transitioned to ${targetStatus.toUpperCase()}`,
+        action: `Bulk Status Update: ${updatedList.length} candidate(s) transitioned to ${targetStatus.toUpperCase()}`,
         entityType: 'application',
-        details: `Application IDs: ${selectedApplications.map((a) => a.id).join(', ')}. Batch Note: ${batchNotes || 'None'}.`,
+        details: `Application IDs: ${updatedList.map((a) => a.id).join(', ')}. Batch Note: ${note || 'None'}.`,
         newStatus: targetStatus,
-        recipientCount: selectedApplications.length,
+        recipientCount: updatedList.length,
         activityType: 'bulk_status',
       });
-
       onBulkUpdated(updatedList);
+    }
+
+    if (failure) {
       if (onAddToast) {
-        onAddToast(
-          'Bulk Status Updated',
-          `Successfully updated ${selectedApplications.length} applicant(s) to ${targetStatus.replace('_', ' ').toUpperCase()}`,
-          'success'
-        );
+        const reason = (failure as { message?: string }).message || 'Firestore error';
+        onAddToast('Bulk Update Incomplete', `Updated ${updatedList.length} of ${total} applicant(s) before an error: ${reason}`, 'error');
+      }
+    } else {
+      if (onAddToast) {
+        onAddToast('Bulk Status Updated', `Successfully updated ${total} applicant(s) to ${targetStatus.replace('_', ' ').toUpperCase()}`, 'success');
       }
       onClose();
-    } catch (err: any) {
-      console.error('Bulk status update error:', err);
-      if (onAddToast) {
-        onAddToast('Bulk Update Failed', err.message || 'Could not update records in Firestore', 'error');
-      }
-    } finally {
-      setIsUpdating(false);
     }
+    setIsUpdating(false);
   };
 
   return (
