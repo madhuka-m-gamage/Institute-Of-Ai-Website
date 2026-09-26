@@ -525,7 +525,7 @@ export const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
               </div>
               <div className="flex items-center gap-2 text-white">
                 <Clock className="w-3.5 h-3.5 text-[#41e4c0]" />
-                <span>Submitted: <strong className="text-[#d3e4fe] font-normal">{application.createdAt ? new Date(application.createdAt).toLocaleString() : formatApplicationDate(application)}</strong></span>
+                <span>Submitted: <strong className="text-[#d3e4fe] font-normal">{formatApplicationDate(application)}</strong></span>
               </div>
             </div>
 

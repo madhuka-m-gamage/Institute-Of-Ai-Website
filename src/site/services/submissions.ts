@@ -3,11 +3,11 @@ import type { EnterpriseInquiry, TransmissionPayload } from '../../types';
 // Firebase is loaded on submit rather than with the page, so public visitors don't download
 // the Firestore/Auth SDKs unless they actually send a form. Failures propagate to the caller.
 async function firestore() {
-  const [{ db, auth }, { addDoc, collection }] = await Promise.all([
+  const [{ db, auth }, { addDoc, collection, serverTimestamp }] = await Promise.all([
     import('../../lib/firebase'),
     import('firebase/firestore'),
   ]);
-  return { db, auth, addDoc, collection };
+  return { db, auth, addDoc, collection, serverTimestamp };
 }
 
 export interface ApplicationSubmission {
@@ -20,7 +20,7 @@ export interface ApplicationSubmission {
 }
 
 export async function submitApplication(input: ApplicationSubmission): Promise<void> {
-  const { db, auth, addDoc, collection } = await firestore();
+  const { db, auth, addDoc, collection, serverTimestamp } = await firestore();
   const name = input.name.trim();
   const phone = input.phone.trim();
   await addDoc(collection(db, 'applications'), {
@@ -38,12 +38,12 @@ export async function submitApplication(input: ApplicationSubmission): Promise<v
     status: 'submitted',
     notes: `Phone: ${phone} | Proficiency: ${input.experience}`,
     userId: auth.currentUser?.uid || 'guest_applicant',
-    createdAt: new Date().toISOString(),
+    createdAt: serverTimestamp(),
   });
 }
 
 export async function submitEnterpriseInquiry(inquiry: EnterpriseInquiry): Promise<EnterpriseInquiry> {
-  const { db, auth, addDoc, collection } = await firestore();
+  const { db, auth, addDoc, collection, serverTimestamp } = await firestore();
   const payload: EnterpriseInquiry = {
     ...inquiry,
     companyName: inquiry.companyName.trim(),
@@ -51,20 +51,20 @@ export async function submitEnterpriseInquiry(inquiry: EnterpriseInquiry): Promi
     workEmail: inquiry.workEmail.trim(),
     phone: inquiry.phone?.trim() || '',
     userId: auth.currentUser?.uid || 'guest_enterprise',
-    createdAt: new Date().toISOString(),
+    createdAt: serverTimestamp(),
   };
   await addDoc(collection(db, 'enterpriseInquiries'), payload);
   return payload;
 }
 
 export async function submitContactMessage(message: TransmissionPayload): Promise<void> {
-  const { db, auth, addDoc, collection } = await firestore();
+  const { db, auth, addDoc, collection, serverTimestamp } = await firestore();
   await addDoc(collection(db, 'contactMessages'), {
     name: message.name.trim(),
     email: message.email.trim(),
     inquiryType: message.inquiryType,
     message: message.message.trim(),
     userId: auth.currentUser?.uid || 'guest_contact',
-    createdAt: new Date().toISOString(),
+    createdAt: serverTimestamp(),
   });
 }

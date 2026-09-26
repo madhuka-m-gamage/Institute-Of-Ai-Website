@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
-import { collection, getDocs, getDoc, setDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db, googleSignIn, emailPasswordSignIn, logout, initAuth, getGmailSendToken } from '../lib/firebase';
+import { collection, getDocs, getDoc, setDoc, doc, query, orderBy, limit } from 'firebase/firestore';
+import { db, FIRESTORE_DATABASE_ID, googleSignIn, emailPasswordSignIn, logout, initAuth, getGmailSendToken } from '../lib/firebase';
 import { StudentApplication, ApplicationStatus, StaffRole, getCandidateName, getApplicationTimestamp, formatApplicationDate } from '../types';
 import {
   Shield,
@@ -66,6 +66,9 @@ interface AdminPageProps {
 }
 
 type MainTabType = 'admissions' | 'activity' | 'users' | 'audit';
+
+// Newest records loaded per collection. Well above current volume; the status bar says when it is reached.
+const RECORD_LIMIT = 500;
 type AdmissionsSubTab = 'applications' | 'activity' | 'enterprise' | 'messages';
 
 const tableListVariants = {
@@ -161,6 +164,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>('Connecting to Google Cloud Firestore...');
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Track Firebase Auth State
@@ -314,50 +318,56 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
   const fetchRecords = async () => {
     if (!user || !staffRole) return;
     setIsLoading(true);
+    setLoadError(null);
     setStatusMessage('Syncing with Google Cloud Firestore collections...');
-    try {
-      // 1. Applications
-      try {
-        const appSnap = await getDocs(collection(db, 'applications'));
-        const apps = appSnap.docs.map(d => {
+
+    const load = (name: string) => getDocs(query(collection(db, name), orderBy('createdAt', 'desc'), limit(RECORD_LIMIT)));
+    const [appRes, entRes, msgRes] = await Promise.allSettled([
+      load('applications'),
+      load('enterpriseInquiries'),
+      load('contactMessages'),
+    ]);
+
+    const failed: string[] = [];
+    let truncated = false;
+
+    if (appRes.status === 'fulfilled') {
+      truncated ||= appRes.value.docs.length === RECORD_LIMIT;
+      const apps = appRes.value.docs
+        .map((d) => {
           const data = d.data();
-          const normalizedName = getCandidateName(data as any);
-          return {
-            id: d.id,
-            ...data,
-            fullName: normalizedName,
-          } as StudentApplication;
-        }).sort((a, b) => getApplicationTimestamp(b) - getApplicationTimestamp(a));
-        setApplications(apps);
-      } catch (err: any) {
-        console.warn('Applications fetch warning:', err);
-      }
-
-      // 2. Enterprise Inquiries
-      try {
-        const entSnap = await getDocs(collection(db, 'enterpriseInquiries'));
-        const ents = entSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setEnterpriseInquiries(ents);
-      } catch (err: any) {
-        console.warn('Enterprise inquiries fetch warning:', err);
-      }
-
-      // 3. Contact Messages
-      try {
-        const msgSnap = await getDocs(collection(db, 'contactMessages'));
-        const msgs = msgSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        setMessages(msgs);
-      } catch (err: any) {
-        console.warn('Contact messages fetch warning:', err);
-      }
-
-      setStatusMessage('Live sync complete. Connected to Firestore collections.');
-    } catch (err: any) {
-      console.warn('Firestore fetch notice:', err);
-      setStatusMessage('Live write pipeline active. Read queries connected.');
-    } finally {
-      setIsLoading(false);
+          return { id: d.id, ...data, fullName: getCandidateName(data as any) } as StudentApplication;
+        })
+        .sort((a, b) => getApplicationTimestamp(b) - getApplicationTimestamp(a));
+      setApplications(apps);
+    } else {
+      console.warn('Applications fetch failed:', appRes.reason);
+      failed.push('applications');
     }
+
+    if (entRes.status === 'fulfilled') {
+      truncated ||= entRes.value.docs.length === RECORD_LIMIT;
+      setEnterpriseInquiries(entRes.value.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } else {
+      console.warn('Enterprise inquiries fetch failed:', entRes.reason);
+      failed.push('enterprise inquiries');
+    }
+
+    if (msgRes.status === 'fulfilled') {
+      truncated ||= msgRes.value.docs.length === RECORD_LIMIT;
+      setMessages(msgRes.value.docs.map((d) => ({ id: d.id, ...d.data() })));
+    } else {
+      console.warn('Contact messages fetch failed:', msgRes.reason);
+      failed.push('contact messages');
+    }
+
+    if (failed.length > 0) {
+      setLoadError(`Could not load ${failed.join(', ')}. Check your connection and permissions, then press Sync.`);
+      setStatusMessage('Sync incomplete.');
+    } else {
+      setStatusMessage(truncated ? `Synced — showing the newest ${RECORD_LIMIT} per list.` : 'Live sync complete. Connected to Firestore collections.');
+    }
+    setIsLoading(false);
   };
 
   useEffect(() => {
@@ -412,54 +422,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
 
   const handleClearSelection = () => {
     setSelectedAppIds([]);
-  };
-
-  const handleExportSelectedCsv = () => {
-    const selectedApps = applications.filter((a) => selectedAppIds.includes(a.id));
-    if (selectedApps.length === 0) return;
-
-    const headers = [
-      'Application ID',
-      'Candidate Name',
-      'Email',
-      'Phone',
-      'Course Title',
-      'Status',
-      'Applied At',
-      'Decision Sent',
-      'Background',
-      'Goals / Statements',
-      'Notes'
-    ];
-
-    const rows = selectedApps.map((a) => [
-      `"${a.id}"`,
-      `"${getCandidateName(a).replace(/"/g, '""')}"`,
-      `"${(a.email || '').replace(/"/g, '""')}"`,
-      `"${(a.phone || '').replace(/"/g, '""')}"`,
-      `"${(a.courseTitle || (a as any).courseName || '').replace(/"/g, '""')}"`,
-      `"${(a.status || 'submitted').replace(/"/g, '""')}"`,
-      `"${(a.createdAt || '').replace(/"/g, '""')}"`,
-      `"${a.decisionLetterSent ? 'YES' : 'NO'}"`,
-      `"${(a.background || (a as any).currentRole || '').replace(/"/g, '""')}"`,
-      `"${(a.goals || '').replace(/"/g, '""')}"`,
-      `"${(a.notes || '').replace(/"/g, '""')}"`,
-    ]);
-
-    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Institute-of-AI-Candidates-Export-${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    if (onAddToast) {
-      onAddToast('Export Downloaded', `Exported ${selectedApps.length} candidate record(s) as CSV.`, 'success');
-    }
   };
 
   // 1. Loading State (Skeleton screen effect prevents blank screen)
@@ -763,7 +725,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
             <div className="flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full bg-[#41e4c0] animate-pulse" />
               <span className="font-mono text-[#d3e4fe]">
-                Database: <strong className="text-white">ai-studio-instituteofaiweb-f26eec15-970f-4b88-87fa-dcfd5e70a258</strong>
+                Database: <strong className="text-white">{FIRESTORE_DATABASE_ID}</strong>
               </span>
             </div>
             <div className="flex items-center gap-3">
@@ -778,6 +740,13 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
               </button>
             </div>
           </div>
+
+          {loadError && (
+            <div role="alert" className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/40 text-xs text-rose-300 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{loadError}</span>
+            </div>
+          )}
 
           {/* Metrics Row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
@@ -1353,7 +1322,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
 
                                         <div className="flex flex-wrap items-center gap-2.5">
                                           {/* Application Submission Date Badge */}
-                                          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#000f21] border border-[#334155]/80 text-[11px] text-[#94a3b8]" title={`Submitted: ${app.createdAt || 'Recent'}`}>
+                                          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#000f21] border border-[#334155]/80 text-[11px] text-[#94a3b8]" title={`Submitted: ${formatApplicationDate(app)}`}>
                                             <Clock className="w-3 h-3 text-[#41e4c0] shrink-0" />
                                             <span>Applied: <strong className="text-[#d3e4fe] font-normal">{formatApplicationDate(app)}</strong></span>
                                           </div>

@@ -16,19 +16,18 @@ describe('CHARACTERIZATION CSV formula injection — ADM-7, flips in Charge Q10'
   });
 });
 
-describe('CHARACTERIZATION CSV dates — FB-15, flips in Charge Q9', () => {
+describe('CSV dates — FB-15 (Q9)', () => {
   it('formats ISO dates as UTC "YYYY-MM-DD HH:MM:SS"', () => {
     expect(formatCsvDate('2026-01-02T03:04:05.000Z')).toBe('2026-01-02 03:04:05');
   });
-  it('BUG: a Firestore Timestamp createdAt is written as "[object Object]" (no crash)', () => {
-    const ts = { seconds: 1, nanoseconds: 0, toDate: () => new Date(1000) };
-    let outcome: string;
-    try {
-      const { csvString } = generateCandidateCsv([{ id: 't', email: 'e@x.com', createdAt: ts } as any]);
-      outcome = csvString.includes('[object Object]') ? 'object-string' : 'other';
-    } catch {
-      outcome = 'throws';
-    }
-    expect(outcome).toMatchInlineSnapshot(`"object-string"`);
+  it('formats a Firestore Timestamp createdAt instead of writing "[object Object]"', () => {
+    const ts = { seconds: 1767323045, nanoseconds: 0, toDate: () => new Date(Date.UTC(2026, 0, 2, 3, 4, 5)) };
+    const { csvString } = generateCandidateCsv([{ id: 't', email: 'e@x.com', createdAt: ts } as any]);
+    expect(csvString).not.toContain('[object Object]');
+    expect(csvString).toContain('2026-01-02 03:04:05');
+  });
+  it('leaves missing or unparseable dates blank', () => {
+    expect(formatCsvDate(undefined)).toBe('');
+    expect(formatCsvDate('not a date')).toBe('');
   });
 });

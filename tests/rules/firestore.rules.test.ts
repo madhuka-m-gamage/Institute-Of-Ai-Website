@@ -37,13 +37,13 @@ const validApplication = (userId = 'guest_applicant') => ({
   fullName: 'Ada Lovelace', applicantName: 'Ada Lovelace', name: 'Ada Lovelace', candidateName: 'Ada Lovelace',
   email: 'ada@example.com', phone: '', courseId: 'ai-master', courseTitle: 'AI Master', background: 'Intermediate',
   experienceLevel: 'Intermediate', pythonProficiency: 'Intermediate', status: 'submitted', notes: 'Phone: ',
-  userId, createdAt: '2026-09-26T00:00:00.000Z',
+  userId, createdAt: serverTimestamp(),
 });
 const validInquiry = () => ({
   companyName: 'Co', contactName: 'Pat', workEmail: 'pat@co.com', phone: '', jobTitle: '', teamSize: '15-40',
-  primaryFocus: 'x', deliveryFormat: 'x', timeline: 'x', customRequirements: '', userId: 'guest_enterprise', createdAt: 'x',
+  primaryFocus: 'x', deliveryFormat: 'x', timeline: 'x', customRequirements: '', userId: 'guest_enterprise', createdAt: serverTimestamp(),
 });
-const validContact = () => ({ name: 'Sam', email: 's@x.com', inquiryType: 'academic', message: 'hi', userId: 'guest_contact', createdAt: 'x' });
+const validContact = () => ({ name: 'Sam', email: 's@x.com', inquiryType: 'academic', message: 'hi', userId: 'guest_contact', createdAt: serverTimestamp() });
 
 describe('Q1 rules: applicant data is staff-only (FB-1/FB-2/ADM-1)', () => {
   it('anonymous cannot read applications', () => assertFails(getDoc(doc(anon(), 'applications/app1'))));
@@ -96,6 +96,11 @@ describe('Q1 rules: public submissions are validated (FB-3/ADM-2/PUB-1)', () => 
     assertFails(addDoc(collection(anon(), 'enterpriseInquiries'), { anything: true })));
   it('accepts the exact contact message the Contact page writes', () =>
     assertSucceeds(addDoc(collection(anon(), 'contactMessages'), validContact())));
+  it('rejects a client-supplied createdAt on every public form (Q9)', async () => {
+    await assertFails(addDoc(collection(anon(), 'applications'), { ...validApplication(), createdAt: '2026-01-01T00:00:00.000Z' }));
+    await assertFails(addDoc(collection(anon(), 'enterpriseInquiries'), { ...validInquiry(), createdAt: '2099-01-01T00:00:00.000Z' }));
+    await assertFails(addDoc(collection(anon(), 'contactMessages'), { ...validContact(), createdAt: 1 }));
+  });
   it('rejects a contact message with an unknown inquiry type', () =>
     assertFails(addDoc(collection(anon(), 'contactMessages'), { ...validContact(), inquiryType: 'spam' })));
 });

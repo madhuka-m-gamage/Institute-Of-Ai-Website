@@ -6,6 +6,7 @@ const addDoc = vi.fn();
 vi.mock('firebase/firestore', () => ({
   collection: (_db: unknown, name: string) => name,
   addDoc: (...a: unknown[]) => addDoc(...a),
+  serverTimestamp: () => 'SERVER_TIMESTAMP',
 }));
 vi.mock('../../src/lib/firebase', () => ({ db: {}, auth: { currentUser: null } }));
 vi.mock('canvas-confetti', () => ({ default: vi.fn() }));
