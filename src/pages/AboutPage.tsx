@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FACULTY, TEAM_IMAGE_URL } from '../data/mockData';
 import { Page } from '../types';
-import { ScrollReveal } from '../components/ScrollReveal';
-import { CardSkeleton, SkeletonBlock } from '../components/Skeleton';
+import { ScrollReveal } from '../ui/ScrollReveal';
+import { CardSkeleton, SkeletonBlock } from '../ui/Skeleton';
 import { Shield, BookOpen, Layers, Award, Share2, ArrowRight, Network } from 'lucide-react';
 import { motion } from 'motion/react';
 

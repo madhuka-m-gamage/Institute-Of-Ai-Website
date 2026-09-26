@@ -46,7 +46,7 @@ import {
   Download,
   Activity
 } from 'lucide-react';
-import { ScrollReveal } from '../components/ScrollReveal';
+import { ScrollReveal } from '../ui/ScrollReveal';
 import { motion, AnimatePresence } from 'motion/react';
 import { UserManagementPanel } from '../components/UserManagementPanel';
 import { AdminAuditTrailPanel } from '../components/AdminAuditTrailPanel';
@@ -58,7 +58,7 @@ import { BulkStatusModal } from '../components/BulkStatusModal';
 import { CandidateExportModal } from '../components/CandidateExportModal';
 import { StatusBadge } from '../components/StatusBadge';
 import { AdminNotificationBell } from '../components/AdminNotificationBell';
-import { AdminPageFullSkeleton, AdminListSkeleton } from '../components/Skeleton';
+import { AdminPageFullSkeleton, AdminListSkeleton } from '../ui/Skeleton';
 import { AdminNotification } from '../types';
 
 interface AdminPageProps {

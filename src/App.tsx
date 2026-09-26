@@ -6,15 +6,15 @@ import { Footer } from './components/Footer';
 import { SearchModal } from './components/SearchModal';
 import { ApplyModal } from './components/ApplyModal';
 import { EnterpriseContactModal } from './components/EnterpriseContactModal';
-import { ProgressBar } from './components/ProgressBar';
-import { BackToTop } from './components/BackToTop';
-import { ToastContainer, ToastMessage } from './components/Toast';
+import { ProgressBar } from './ui/ProgressBar';
+import { BackToTop } from './ui/BackToTop';
+import { ToastContainer, ToastMessage } from './ui/Toast';
 import { HomePage } from './pages/HomePage';
 import { AboutPage } from './pages/AboutPage';
 import { ProgramsPage } from './pages/ProgramsPage';
 import { ResearchPage } from './pages/ResearchPage';
 import { ContactPage } from './pages/ContactPage';
-import { AdminPageFullSkeleton } from './components/Skeleton';
+import { AdminPageFullSkeleton } from './ui/Skeleton';
 
 // Loaded on demand so public visitors don't download the admin console.
 const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })));
