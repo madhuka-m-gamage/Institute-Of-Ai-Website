@@ -8,7 +8,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('CHARACTERIZATION EmailRichPreview with BulkEmailModal props — GWS-2, flips in Charge Q5', () => {
+describe('EmailRichPreview requires bodyText — GWS-2 (caller fixed in Q5)', () => {
   it('renders with the declared bodyText prop', () => {
     const { getByText } = render(
       <EmailRichPreview subject="S" bodyText="Hello there" recipientEmail="a@b.com" recipientName="A" status="submitted" courseTitle="C" />
@@ -16,7 +16,7 @@ describe('CHARACTERIZATION EmailRichPreview with BulkEmailModal props — GWS-2,
     expect(getByText(/Hello there/)).toBeTruthy();
   });
 
-  it('BUG GWS-2: throws when given `body` (as BulkEmailModal.tsx:762 passes it)', () => {
+  it('throws without bodyText, so callers must pass it (BulkEmailModal does since Q5)', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const props: any = { subject: 'S', body: 'Hello', recipientName: 'A', status: 'submitted', courseTitle: 'C' };
     expect(() => render(<EmailRichPreview {...props} />)).toThrow(TypeError);

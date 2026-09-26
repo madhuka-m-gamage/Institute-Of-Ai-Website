@@ -117,13 +117,6 @@ service cloud.firestore {
       allow update, delete: if canManageInquiries();
     }
 
-    // Application Workflows Collection
-    match /application_workflows/{workflowId} {
-      allow read: if isStaff();
-      allow create: if true;
-      allow update, delete: if false;
-    }
-
     // Admin Audit Logs Collection
     match /adminAuditLogs/{logId} {
       allow read: if isStaff();

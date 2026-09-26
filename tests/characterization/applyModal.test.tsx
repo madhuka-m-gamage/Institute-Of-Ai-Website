@@ -28,25 +28,36 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('CHARACTERIZATION ApplyModal submit — PUB-8, flips in Charge Q8', () => {
-  it('writes the application (client-set status/createdAt/userId) then a workflow doc', async () => {
+describe('ApplyModal submit — Q7 (PUB-4/PUB-12/PUB D-4)', () => {
+  it('writes only the application (no workflow/activity doc)', async () => {
     addDoc.mockResolvedValue({ id: 'x' });
     render(<ApplyModal isOpen onClose={() => {}} />);
     fillAndSubmit();
-    await waitFor(() => expect(addDoc).toHaveBeenCalledTimes(2));
+    await screen.findByText('Application Received');
+    expect(addDoc).toHaveBeenCalledTimes(1);
     const [appColl, appData] = addDoc.mock.calls[0];
     expect(appColl).toBe('applications');
     expect(appData).toMatchObject({ status: 'submitted', userId: 'guest_applicant', email: 'ada@example.com' });
     expect(typeof appData.createdAt).toBe('string');
-    // PUB-4: client writes the forgeable workflow/activity doc — flips in Charge Q7
-    expect(addDoc.mock.calls[1][0]).toBe('application_workflows');
   });
 
-  it('BUG PUB-8: shows success even when every Firestore write fails', async () => {
+  it('shows no readiness score, AI wording, or claim that an email was sent', async () => {
+    addDoc.mockResolvedValue({ id: 'x' });
+    render(<ApplyModal isOpen onClose={() => {}} />);
+    fillAndSubmit();
+    await screen.findByText('Application Received');
+    expect(screen.queryByText(/Readiness Score/i)).toBeNull();
+    expect(screen.queryByText(/AI Workflow|Agentic/i)).toBeNull();
+    expect(screen.queryByText(/confirmation email|dispatch queued|email (was )?sent/i)).toBeNull();
+  });
+});
+
+describe('CHARACTERIZATION ApplyModal submit failure — PUB-8, flips in Charge Q8', () => {
+  it('BUG PUB-8: shows success even when the Firestore write fails', async () => {
     addDoc.mockRejectedValue(new Error('permission-denied'));
     render(<ApplyModal isOpen onClose={() => {}} />);
     fillAndSubmit();
-    expect(await screen.findByText('Application Submitted & AI Workflow Executed')).toBeTruthy();
+    expect(await screen.findByText('Application Received')).toBeTruthy();
   });
 });
 

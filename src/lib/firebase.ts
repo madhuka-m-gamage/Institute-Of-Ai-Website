@@ -2,8 +2,8 @@ import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   signInWithPopup,
+  reauthenticateWithPopup,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   GoogleAuthProvider,
   onAuthStateChanged,
   User,
@@ -46,34 +46,17 @@ export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 
+// Sign-in asks for identity only; Gmail access is requested separately when an admin first sends mail.
 const provider = new GoogleAuthProvider();
-provider.setCustomParameters({
-  prompt: 'select_account consent',
-});
+provider.setCustomParameters({ prompt: 'select_account' });
 
-// Google Workspace Scopes
-const WORKSPACE_SCOPES = [
-  'https://www.googleapis.com/auth/drive',
-  'https://www.googleapis.com/auth/drive.readonly',
-  'https://www.googleapis.com/auth/drive.file',
-  'https://www.googleapis.com/auth/forms.body.readonly',
-  'https://www.googleapis.com/auth/forms.responses.readonly',
-  'https://www.googleapis.com/auth/gmail.readonly',
-  'https://www.googleapis.com/auth/gmail.send',
-  'https://www.googleapis.com/auth/gmail.compose',
-  'https://www.googleapis.com/auth/documents.readonly',
-  'https://www.googleapis.com/auth/documents',
-  'https://www.googleapis.com/auth/tasks',
-  'https://www.googleapis.com/auth/contacts',
-  'https://www.googleapis.com/auth/contacts.readonly',
-  'https://www.googleapis.com/auth/calendar.events',
-  'https://www.googleapis.com/auth/calendar.readonly',
-];
-
-WORKSPACE_SCOPES.forEach((scope) => provider.addScope(scope));
+const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
+// Google access tokens last one hour; refresh a little early so a long bulk send doesn't hit expiry.
+const GMAIL_TOKEN_LIFETIME_MS = 55 * 60 * 1000;
 
 let isSigningIn = false;
 let cachedAccessToken: string | null = null;
+let cachedAccessTokenExpiresAt = 0;
 
 export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
@@ -93,13 +76,11 @@ export const initAuth = (
   });
 };
 
-export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
+export const googleSignIn = async (): Promise<{ user: User } | null> => {
   try {
     isSigningIn = true;
     const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    cachedAccessToken = credential?.accessToken || null;
-    return { user: result.user, accessToken: cachedAccessToken || '' };
+    return { user: result.user };
   } catch (error: unknown) {
     console.error('Sign in error:', error);
     throw error;
@@ -121,13 +102,37 @@ export const emailPasswordSignIn = async (email: string, pass: string): Promise<
   }
 };
 
-export const getAccessToken = async (): Promise<string | null> => {
-  return cachedAccessToken;
+// Incremental authorization: re-authenticates the signed-in Google account asking only for gmail.send.
+export const getGmailSendToken = async (): Promise<string> => {
+  if (cachedAccessToken && Date.now() < cachedAccessTokenExpiresAt) return cachedAccessToken;
+
+  const user = auth.currentUser;
+  if (!user || !user.providerData.some((p) => p.providerId === 'google.com')) {
+    throw new Error('Sending email requires signing in to the admin console with Google.');
+  }
+
+  const gmailProvider = new GoogleAuthProvider();
+  gmailProvider.addScope(GMAIL_SEND_SCOPE);
+  gmailProvider.setCustomParameters({ login_hint: user.email || '' });
+
+  const result = await reauthenticateWithPopup(user, gmailProvider);
+  const token = GoogleAuthProvider.credentialFromResult(result)?.accessToken;
+  if (!token) throw new Error('Google did not grant permission to send email.');
+
+  cachedAccessToken = token;
+  cachedAccessTokenExpiresAt = Date.now() + GMAIL_TOKEN_LIFETIME_MS;
+  return token;
+};
+
+// Called when Gmail rejects the token (revoked or expired early) so the next send asks again.
+export const clearGmailSendToken = () => {
+  cachedAccessToken = null;
+  cachedAccessTokenExpiresAt = 0;
 };
 
 export const logout = async () => {
   await signOut(auth);
-  cachedAccessToken = null;
+  clearGmailSendToken();
 };
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {

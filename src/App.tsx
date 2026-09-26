@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Page, EnterpriseInquiry } from './types';
 import { Navbar } from './components/Navbar';
@@ -6,7 +6,6 @@ import { Footer } from './components/Footer';
 import { SearchModal } from './components/SearchModal';
 import { ApplyModal } from './components/ApplyModal';
 import { EnterpriseContactModal } from './components/EnterpriseContactModal';
-import { AIAssistantModal } from './components/AIAssistantModal';
 import { ProgressBar } from './components/ProgressBar';
 import { BackToTop } from './components/BackToTop';
 import { ToastContainer, ToastMessage } from './components/Toast';
@@ -15,7 +14,10 @@ import { AboutPage } from './pages/AboutPage';
 import { ProgramsPage } from './pages/ProgramsPage';
 import { ResearchPage } from './pages/ResearchPage';
 import { ContactPage } from './pages/ContactPage';
-import { AdminPage } from './pages/AdminPage';
+import { AdminPageFullSkeleton } from './components/Skeleton';
+
+// Loaded on demand so public visitors don't download the admin console.
+const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })));
 
 function getInitialPage(): Page {
   // Check pathname first (e.g. /home, /programs, /about, /contact, /admin)
@@ -48,7 +50,6 @@ export function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isApplyOpen, setIsApplyOpen] = useState(false);
   const [isEnterpriseOpen, setIsEnterpriseOpen] = useState(false);
-  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
   const [applyCourseId, setApplyCourseId] = useState<string | undefined>();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -114,10 +115,10 @@ export function App() {
     setIsApplyOpen(true);
   };
 
-  const handleApplicationSuccess = (info: { courseTitle: string; email: string; emailSubject: string }) => {
+  const handleApplicationSuccess = (info: { courseTitle: string; email: string }) => {
     addToast(
-      'Application Dispatched',
-      `Your application for "${info.courseTitle}" was processed! Confirmation sent to ${info.email}.`,
+      'Application Received',
+      `Your application for "${info.courseTitle}" was received. Our admissions team will contact you at ${info.email}.`,
       'success'
     );
   };
@@ -161,7 +162,6 @@ export function App() {
               <HomePage
                 onNavigate={handleNavigate}
                 onOpenApply={() => setIsApplyOpen(true)}
-                onOpenAIAssistant={() => setIsAIAssistantOpen(true)}
               />
             )}
             {currentPage === 'about' && (
@@ -179,7 +179,11 @@ export function App() {
             )}
             {currentPage === 'research' && <ResearchPage />}
             {currentPage === 'contact' && <ContactPage />}
-            {currentPage === 'admin' && <AdminPage onAddToast={addToast} />}
+            {currentPage === 'admin' && (
+              <Suspense fallback={<AdminPageFullSkeleton />}>
+                <AdminPage onAddToast={addToast} />
+              </Suspense>
+            )}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -205,12 +209,6 @@ export function App() {
         isOpen={isEnterpriseOpen}
         onClose={() => setIsEnterpriseOpen(false)}
         onSuccess={handleEnterpriseSuccess}
-      />
-
-      <AIAssistantModal
-        isOpen={isAIAssistantOpen}
-        onClose={() => setIsAIAssistantOpen(false)}
-        onSelectCourse={handleOpenApplyWithCourse}
       />
 
       {/* Floating Back to Top Button */}

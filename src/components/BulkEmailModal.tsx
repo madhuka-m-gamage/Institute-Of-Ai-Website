@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { db } from '../lib/firebase';
-import { doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { db, getGmailSendToken, clearGmailSendToken } from '../lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 import { logAdminAction } from '../services/auditLog';
 import { StudentApplication, ApplicationStatus, getCandidateName } from '../types';
 import { sendGmailMessage, EmailAttachmentPayload } from '../services/workspace';
@@ -36,11 +36,20 @@ interface BulkEmailModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedApplications: StudentApplication[];
-  accessToken?: string;
   currentAdminEmail: string;
   onBulkCompleted: (updatedApplications: StudentApplication[]) => void;
   onAddToast?: (title: string, description: string, type?: 'success' | 'info' | 'error') => void;
 }
+
+interface SendLog {
+  appId: string;
+  name: string;
+  email: string;
+  success: boolean;
+  error?: string;
+}
+
+const TOKEN_REJECTED = /Gmail API error \((401|403)\)/;
 
 type MassTemplateType =
   | 'acceptance'
@@ -55,7 +64,6 @@ export const BulkEmailModal: React.FC<BulkEmailModalProps> = ({
   isOpen,
   onClose,
   selectedApplications,
-  accessToken,
   currentAdminEmail,
   onBulkCompleted,
   onAddToast,
@@ -78,10 +86,11 @@ export const BulkEmailModal: React.FC<BulkEmailModalProps> = ({
     total: 0,
     currentName: '',
   });
-  const [sendLogs, setSendLogs] = useState<{ name: string; email: string; success: boolean; error?: string }[]>([]);
+  const [sendLogs, setSendLogs] = useState<SendLog[]>([]);
   const [isDone, setIsDone] = useState<boolean>(false);
 
-  // Sync recipient list if selectedApplications changes when modal is opened
+  // Reset only when the modal opens. The parent passes a freshly filtered array on every render,
+  // so depending on it would wipe progress and results mid-send.
   useEffect(() => {
     if (isOpen) {
       setRecipientList(selectedApplications);
@@ -90,7 +99,7 @@ export const BulkEmailModal: React.FC<BulkEmailModalProps> = ({
       setIsSending(false);
       setSendLogs([]);
     }
-  }, [isOpen, selectedApplications]);
+  }, [isOpen]);
 
   // Generate templates based on templateType
   useEffect(() => {
@@ -264,30 +273,34 @@ export const BulkEmailModal: React.FC<BulkEmailModalProps> = ({
       return;
     }
 
-    if (!accessToken) {
-      if (onAddToast) {
-        onAddToast(
-          'Workspace Authorization Required',
-          'Please sign in with Google in the Admin Console to authorize Gmail API dispatch.',
-          'error'
-        );
-      }
+    // Cached after the first authorization, so this only prompts when needed.
+    let gmailToken: string;
+    try {
+      gmailToken = await getGmailSendToken();
+    } catch (err: any) {
+      if (onAddToast) onAddToast('Gmail Authorization Required', err.message || 'Could not authorize Gmail sending.', 'error');
       return;
     }
+
+    const seenEmails = new Set<string>();
+    const recipients = recipientList.filter((a) => {
+      const key = (a.email || '').trim().toLowerCase();
+      if (!key || seenEmails.has(key)) return false;
+      seenEmails.add(key);
+      return true;
+    });
 
     setIsSending(true);
     setIsDone(false);
     setSendLogs([]);
-    setSendProgress({ current: 0, total: recipientList.length, currentName: '' });
+    setSendProgress({ current: 0, total: recipients.length, currentName: '' });
 
-    const logs: { name: string; email: string; success: boolean; error?: string }[] = [];
+    const logs: SendLog[] = [];
     const updatedApps: StudentApplication[] = [];
+    let tokenRejected = false;
 
-    const batch = writeBatch(db);
-    let batchNeedsCommit = false;
-
-    for (let i = 0; i < recipientList.length; i++) {
-      const app = recipientList[i];
+    for (let i = 0; i < recipients.length; i++) {
+      const app = recipients[i];
       const name = getCandidateName(app);
       const firstName = name.split(' ')[0] || name;
       const course = app.courseTitle || (app as any).courseName || 'Applied AI Program';
@@ -295,7 +308,7 @@ export const BulkEmailModal: React.FC<BulkEmailModalProps> = ({
 
       setSendProgress({
         current: i + 1,
-        total: recipientList.length,
+        total: recipients.length,
         currentName: `${name} (${app.email})`,
       });
 
@@ -362,7 +375,7 @@ export const BulkEmailModal: React.FC<BulkEmailModalProps> = ({
         }
 
         // 3. Dispatch email via Gmail API
-        await sendGmailMessage(accessToken, app.email, finalSubject, finalBody, attachmentsPayload);
+        await sendGmailMessage(gmailToken, app.email, finalSubject, finalBody, attachmentsPayload);
 
         // 4. Update application in Firestore
         const appRef = doc(db, 'applications', app.id);
@@ -379,43 +392,48 @@ export const BulkEmailModal: React.FC<BulkEmailModalProps> = ({
           updateFields.reviewedBy = currentAdminEmail;
         }
 
-        batch.update(appRef, updateFields);
-        batchNeedsCommit = true;
-
-        updatedApps.push({
-          ...app,
-          ...updateFields,
-        });
-
-        logs.push({ name, email: app.email, success: true });
+        // Record immediately so a later failure can't leave sent emails unrecorded.
+        try {
+          await updateDoc(appRef, updateFields);
+          updatedApps.push({ ...app, ...updateFields });
+          logs.push({ appId: app.id, name, email: app.email, success: true });
+        } catch (recordErr) {
+          console.error(`Email sent to ${app.email} but the application record was not updated:`, recordErr);
+          logs.push({ appId: app.id, name, email: app.email, success: true, error: 'Sent, but the application record was not updated.' });
+        }
       } catch (err: any) {
         console.error(`Error sending bulk email to ${app.email}:`, err);
-        logs.push({ name, email: app.email, success: false, error: err.message || 'Dispatch error' });
+        tokenRejected = TOKEN_REJECTED.test(err.message || '');
+        logs.push({
+          appId: app.id,
+          name,
+          email: app.email,
+          success: false,
+          error: tokenRejected
+            ? 'Gmail access expired or was revoked. Re-authorize by retrying the remaining recipients.'
+            : err.message || 'Dispatch error',
+        });
       }
 
       setSendLogs([...logs]);
 
-      // Modest pause between dispatches to maintain safe Gmail API throughput
-      if (i < recipientList.length - 1) {
-        await new Promise((res) => setTimeout(res, 300));
+      if (tokenRejected) {
+        clearGmailSendToken();
+        break;
       }
-    }
 
-    // Commit Firestore batch updates
-    if (batchNeedsCommit) {
-      try {
-        await batch.commit();
-      } catch (batchErr) {
-        console.warn('Batch commit error:', batchErr);
+      // Modest pause between dispatches to maintain safe Gmail API throughput
+      if (i < recipients.length - 1) {
+        await new Promise((res) => setTimeout(res, 300));
       }
     }
 
     // Log mass dispatch in admin audit logs
     const successCount = logs.filter((l) => l.success).length;
     await logAdminAction({
-      action: `Mass Email Dispatched (${successCount}/${recipientList.length} successful)`,
+      action: `Mass Email Dispatched (${successCount}/${recipients.length} successful)`,
       entityType: 'application',
-      details: `Template: ${templateType.toUpperCase()}. Target status: ${syncStatus}. Application IDs: ${recipientList.map((r) => r.id).join(', ')}.`,
+      details: `Template: ${templateType.toUpperCase()}. Target status: ${syncStatus}. Application IDs: ${recipients.map((r) => r.id).join(', ')}.`,
       activityType: 'bulk_email',
       recipientCount: successCount,
       newStatus: syncStatus !== 'keep' ? syncStatus : undefined,
@@ -428,10 +446,19 @@ export const BulkEmailModal: React.FC<BulkEmailModalProps> = ({
     if (onAddToast) {
       onAddToast(
         'Mass Dispatch Completed',
-        `Successfully sent ${successCount} of ${recipientList.length} customized emails.`,
-        successCount === recipientList.length ? 'success' : 'info'
+        `Successfully sent ${successCount} of ${recipients.length} customized emails.`,
+        successCount === recipients.length ? 'success' : 'info'
       );
     }
+  };
+
+  // Narrow the list to everyone not yet sent (failures plus anyone skipped after a token rejection).
+  const handleRetryUnsent = () => {
+    const sentIds = new Set(sendLogs.filter((l) => l.success).map((l) => l.appId));
+    setRecipientList((prev) => prev.filter((a) => !sentIds.has(a.id)));
+    setPreviewIndex(0);
+    setIsDone(false);
+    setSendLogs([]);
   };
 
   if (!isOpen) return null;
@@ -509,13 +536,33 @@ export const BulkEmailModal: React.FC<BulkEmailModalProps> = ({
                 <strong>Mass dispatch finished:</strong> {sendLogs.filter((l) => l.success).length} of {sendLogs.length} emails dispatched successfully.
               </span>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-mono-caps text-xs cursor-pointer"
-            >
-              Done & Close
-            </button>
+            <div className="flex items-center gap-2">
+              {recipientList.some((a) => !sendLogs.some((l) => l.success && l.appId === a.id)) && (
+                <button
+                  type="button"
+                  onClick={handleRetryUnsent}
+                  className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-mono-caps text-xs cursor-pointer"
+                >
+                  Retry Unsent
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-mono-caps text-xs cursor-pointer"
+              >
+                Done & Close
+              </button>
+            </div>
+            {sendLogs.some((l) => l.error) && (
+              <ul className="w-full space-y-1 text-amber-300">
+                {sendLogs.filter((l) => l.error).map((l) => (
+                  <li key={l.appId}>
+                    {l.name} ({l.email}): {l.error}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 
@@ -754,7 +801,8 @@ export const BulkEmailModal: React.FC<BulkEmailModalProps> = ({
                 <div className="rounded-2xl border border-[#334155] bg-[#00172e] p-1 overflow-hidden shadow-inner max-h-[580px] overflow-y-auto">
                   <EmailRichPreview
                     subject={interpolatedPreview.subject}
-                    body={interpolatedPreview.body}
+                    bodyText={interpolatedPreview.body}
+                    recipientEmail={interpolatedPreview.email}
                     recipientName={interpolatedPreview.recipientName}
                     status={syncStatus === 'keep' ? currentPreviewApp.status || 'submitted' : syncStatus}
                     courseTitle={interpolatedPreview.course}
