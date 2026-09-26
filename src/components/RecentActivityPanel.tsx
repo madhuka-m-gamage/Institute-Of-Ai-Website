@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
-import { StudentApplication, ApplicationStatus, getCandidateName } from '../types';
+import { StudentApplication, ApplicationStatus, getCandidateName, getApplicationTimestamp } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { ListItemSkeleton } from './Skeleton';
 import {
@@ -86,7 +86,7 @@ export const RecentActivityPanel: React.FC<RecentActivityPanelProps> = ({
     const unsubscribeAudit = onSnapshot(
       q,
       (snapshot) => {
-        const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }));
         setRawAuditLogs(docs);
         setLoading(false);
       },
@@ -200,7 +200,7 @@ export const RecentActivityPanel: React.FC<RecentActivityPanelProps> = ({
 
       events.push({
         id: log.id,
-        timestamp: log.timestamp || new Date().toISOString(),
+        timestamp: log.timestamp ? new Date(getApplicationTimestamp(log)).toISOString() : new Date().toISOString(),
         actorEmail: log.actorEmail || 'admin@instituteofai.com',
         action: log.action || 'Administrative Event',
         entityType: log.entityType || 'application',
