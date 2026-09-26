@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Page, EnterpriseInquiry } from './types';
 import { Navbar } from './components/Navbar';
@@ -15,7 +15,10 @@ import { AboutPage } from './pages/AboutPage';
 import { ProgramsPage } from './pages/ProgramsPage';
 import { ResearchPage } from './pages/ResearchPage';
 import { ContactPage } from './pages/ContactPage';
-import { AdminPage } from './pages/AdminPage';
+import { AdminPageFullSkeleton } from './components/Skeleton';
+
+// Loaded on demand so public visitors don't download the admin console.
+const AdminPage = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })));
 
 function getInitialPage(): Page {
   // Check pathname first (e.g. /home, /programs, /about, /contact, /admin)
@@ -179,7 +182,11 @@ export function App() {
             )}
             {currentPage === 'research' && <ResearchPage />}
             {currentPage === 'contact' && <ContactPage />}
-            {currentPage === 'admin' && <AdminPage onAddToast={addToast} />}
+            {currentPage === 'admin' && (
+              <Suspense fallback={<AdminPageFullSkeleton />}>
+                <AdminPage onAddToast={addToast} />
+              </Suspense>
+            )}
           </motion.div>
         </AnimatePresence>
       </main>
