@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { collection, addDoc } from 'firebase/firestore';
-import { db, auth } from '../../lib/firebase';
+import { submitApplication } from '../services/submissions';
 import { COURSES } from '../../data/mockData';
 import { AnimatedSuccessCheckmark } from '../../ui/AnimatedSuccessCheckmark';
 import { X, Cpu, Sparkles, Send, AlertCircle } from 'lucide-react';
@@ -30,6 +29,21 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
   // Validation State
   const [errors, setErrors] = useState<{ name?: string; email?: string; phone?: string }>({});
   const [touched, setTouched] = useState<{ name?: boolean; email?: boolean; phone?: boolean }>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Start fresh each time the modal opens, preselecting the course it was opened for.
+  useEffect(() => {
+    if (!isOpen) return;
+    setCourseId(selectedCourseId || COURSES[0].id);
+    setName('');
+    setEmail('');
+    setPhone('');
+    setExperience('Intermediate');
+    setStatus('idle');
+    setErrors({});
+    setTouched({});
+    setSubmitError(null);
+  }, [isOpen, selectedCourseId]);
 
   if (!isOpen) return null;
 
@@ -149,45 +163,20 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
     if (!isValid) return;
 
     setStatus('processing');
+    setSubmitError(null);
     try {
-      const sanitizedName = name.trim();
-      const sanitizedEmail = email.trim();
-      const sanitizedPhone = phone.trim();
-
-      // 1. Save primary registration record in Firestore with all standard & legacy name fields
-      try {
-        await addDoc(collection(db, 'applications'), {
-          fullName: sanitizedName,
-          applicantName: sanitizedName,
-          name: sanitizedName,
-          candidateName: sanitizedName,
-          email: sanitizedEmail,
-          phone: sanitizedPhone,
-          courseId: courseId,
-          courseTitle: selectedCourse.title,
-          background: experience,
-          experienceLevel: experience,
-          pythonProficiency: experience,
-          status: 'submitted',
-          notes: `Phone: ${sanitizedPhone} | Proficiency: ${experience}`,
-          userId: auth.currentUser?.uid || 'guest_applicant',
-          createdAt: new Date().toISOString(),
-        });
-      } catch (firestoreErr) {
-        console.warn('Applications collection save note:', firestoreErr);
-      }
-
-      if (onApplicationSuccess) {
-        onApplicationSuccess({
-          courseTitle: selectedCourse.title,
-          email: sanitizedEmail,
-        });
-      }
+      await submitApplication({ name, email, phone, courseId, courseTitle: selectedCourse.title, experience });
     } catch (err) {
-      console.warn('Application Submit Warning:', err);
-    } finally {
-      setStatus('success');
-      triggerSubtleConfetti();
+      console.warn('Application submit failed:', err);
+      setStatus('idle');
+      setSubmitError("We couldn't send your application. Please check your connection and try again.");
+      return;
+    }
+
+    setStatus('success');
+    triggerSubtleConfetti();
+    if (onApplicationSuccess) {
+      onApplicationSuccess({ courseTitle: selectedCourse.title, email: email.trim() });
     }
   };
 
@@ -357,7 +346,13 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
               </div>
             </div>
 
-            <div className="pt-2">
+            <div className="pt-2 space-y-2">
+              {submitError && (
+                <p role="alert" className="flex items-center gap-1.5 text-xs text-rose-400">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{submitError}</span>
+                </p>
+              )}
               <button
                 type="submit"
                 disabled={status === 'processing'}
