@@ -14,7 +14,7 @@
 |---|---|---|---|---|---|
 | 1 | recon | done | 2026-09-26 | 2026-09-26 | 5/5 modules audited; 9 decisions accepted; owner signed off; 2 urgency questions (live rules, sign-up) do not block Fortify |
 | 2 | fortify | done | 2026-09-26 | 2026-09-26 | Vitest + rules emulator harness; 26 unit/component + 17 rules characterization tests, all passing; see "Characterization coverage" |
-| 3 | charge | not started | — | — | |
+| 3 | charge | in progress | 2026-09-26 | — | Mode A (one item per PR, wait for merge). PRs target `staging`; `staging` → `main` promotions are separate, owner-confirmed. Item 0: foundation PR (recon/fortify/stopgap/new project) |
 | 4 | regroup | not started | — | — | |
 | 5 | breach | not started | — | — | |
 
@@ -50,6 +50,7 @@
 | Keys: budget alert exists; `GEMINI_API_KEY` in Vercel and Firebase apiKey restrictions unconfirmed (treat as not in place). Breach: remove `GEMINI_API_KEY` after Q6 and restrict the Firebase apiKey | Owner answered | human, via status | 2026-09-26 | Q6, Breach |
 | Emergency stopgap before Charge: rules-only hotfix restricting reads/updates/deletes of PII collections to the owner's verified email; public creates unchanged; emulator-tested; deploy only on explicit owner go-ahead. Superseded by Q1 | Live exposure (FB-1/FB-2) | human, via status | 2026-09-26 | `firestore.rules`, `tests/rules/` |
 | Move to new Firebase project `institute-of-ai-509800`, named db `ioai-website`; start fresh (no data migration); old project `gen-lang-client-0216460614` locked with deny-all rules by the owner in its console, retired after cutover; CLI deploys as `madhuka.m.gamage@gmail.com`. Config switch on branch `chore/new-firebase-project` (stacked on the stopgap hotfix): `firebase-applet-config.json` updated (stale `oAuthClientId` dropped), `firebase.json` + `.firebaserc` added for the named db. No Analytics SDK added (not requested) | Owner created the project and chose these options | human | 2026-09-26 | `firebase-applet-config.json`, `firebase.json`, `.firebaserc`, Q1, Breach |
+| Charge PRs target `staging` (Vercel preview); `staging` → `main` promotion is a separate owner-merged step. The 15 pre-Charge commits land as one foundation PR from `chore/new-firebase-project` | Matches the project's existing staging→main flow and the owner's global preference | human, via charge | 2026-09-26 | all Charge items |
 | App Check not enabled today → set up in Q12, enforce in Breach | Owner confirmed | human, via status | 2026-09-26 | Q12, Breach |
 | Marketing claims (faculty, papers, benchmarks, "AES-256-GCM", "<24h guarantee", address) are placeholders — fix later, not in Charge; tracked in backlog | Owner confirmed (PUB-15) | human, via status | 2026-09-26 | `src/pages/*`, `src/data/mockData.ts` |
 | Nothing external sends applicant confirmation emails — server-side confirmation backlog item stays open | Owner confirmed (PUB D-4) | human, via status | 2026-09-26 | backlog |
