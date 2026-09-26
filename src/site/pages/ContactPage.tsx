@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
-import { collection, addDoc } from 'firebase/firestore';
-import { db, auth } from '../../lib/firebase';
+import { submitContactMessage } from '../services/submissions';
 import { MAP_IMAGE_URL } from '../../data/mockData';
 import { TransmissionPayload } from '../../types';
 import { ScrollReveal } from '../../ui/ScrollReveal';
@@ -19,6 +18,7 @@ export const ContactPage: React.FC = () => {
   });
 
   const [status, setStatus] = useState<'idle' | 'transmitting' | 'sent'>('idle');
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ name?: string; email?: string; message?: string }>({});
   const [touched, setTouched] = useState<{ name?: boolean; email?: boolean; message?: boolean }>({});
 
@@ -89,37 +89,34 @@ export const ContactPage: React.FC = () => {
     if (!isValid) return;
 
     setStatus('transmitting');
+    setSubmitError(null);
 
     try {
-      await addDoc(collection(db, 'contactMessages'), {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        inquiryType: formData.inquiryType,
-        message: formData.message.trim(),
-        userId: auth.currentUser?.uid || 'guest_contact',
-        createdAt: new Date().toISOString(),
-      });
+      await submitContactMessage(formData);
     } catch (err) {
-      console.warn('Contact message Firestore log note:', err);
+      console.warn('Contact message submit failed:', err);
+      setStatus('idle');
+      setSubmitError("We couldn't send your message. Please check your connection and try again.");
+      return;
     }
 
-    setTimeout(() => {
-      setStatus('sent');
-      try {
-        confetti({
-          particleCount: 40,
-          spread: 60,
-          origin: { y: 0.6 },
-          colors: ['#41e4c0', '#38debb', '#60a5fa', '#93c5fd', '#38bdf8'],
-          ticks: 200,
-          gravity: 1.1,
-          scalar: 0.85,
-          shapes: ['circle', 'square'],
-          disableForReducedMotion: true,
-          zIndex: 9999,
-        });
-      } catch {}
-    }, 600);
+    setStatus('sent');
+    try {
+      confetti({
+        particleCount: 40,
+        spread: 60,
+        origin: { y: 0.6 },
+        colors: ['#41e4c0', '#38debb', '#60a5fa', '#93c5fd', '#38bdf8'],
+        ticks: 200,
+        gravity: 1.1,
+        scalar: 0.85,
+        shapes: ['circle', 'square'],
+        disableForReducedMotion: true,
+        zIndex: 9999,
+      });
+    } catch {
+      // Confetti is decorative; ignore canvas failures.
+    }
   };
 
   const staggerHeading = {
@@ -314,6 +311,13 @@ export const ContactPage: React.FC = () => {
                       </p>
                     )}
                   </div>
+
+                  {submitError && (
+                    <p role="alert" className="flex items-center gap-1.5 text-xs text-rose-400">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{submitError}</span>
+                    </p>
+                  )}
 
                   <button
                     type="submit"
