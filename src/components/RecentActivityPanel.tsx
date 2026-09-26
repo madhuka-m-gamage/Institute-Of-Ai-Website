@@ -3,7 +3,7 @@ import { db } from '../lib/firebase';
 import { collection, query, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
 import { StudentApplication, ApplicationStatus, getCandidateName, getApplicationTimestamp } from '../types';
 import { StatusBadge } from './StatusBadge';
-import { ListItemSkeleton } from './Skeleton';
+import { ListItemSkeleton } from '../ui/Skeleton';
 import {
   Activity,
   History,

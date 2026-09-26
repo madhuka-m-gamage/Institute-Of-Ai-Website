@@ -4,9 +4,9 @@ import { collection, addDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { MAP_IMAGE_URL } from '../data/mockData';
 import { TransmissionPayload } from '../types';
-import { ScrollReveal } from '../components/ScrollReveal';
+import { ScrollReveal } from '../ui/ScrollReveal';
 import { ContactFAQ } from '../components/ContactFAQ';
-import { AnimatedSuccessCheckmark } from '../components/AnimatedSuccessCheckmark';
+import { AnimatedSuccessCheckmark } from '../ui/AnimatedSuccessCheckmark';
 import { Mail, Phone, MapPin, Send, CheckCircle, Radio, Globe2, Crosshair, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 
