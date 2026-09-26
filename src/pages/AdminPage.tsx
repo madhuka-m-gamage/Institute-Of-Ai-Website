@@ -1564,7 +1564,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onAddToast }) => {
         isOpen={isBulkEmailModalOpen}
         onClose={() => setIsBulkEmailModalOpen(false)}
         selectedApplications={applications.filter((a) => selectedAppIds.includes(a.id))}
-        accessToken={accessToken}
         currentAdminEmail={user?.email || 'admin@instituteofai.com'}
         onBulkCompleted={handleBulkEmailCompleted}
         onAddToast={onAddToast}
