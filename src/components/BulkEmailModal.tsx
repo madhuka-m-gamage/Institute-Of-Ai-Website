@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { db } from '../lib/firebase';
+import { db, getGmailSendToken } from '../lib/firebase';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { logAdminAction } from '../services/auditLog';
 import { StudentApplication, ApplicationStatus, getCandidateName } from '../types';
@@ -264,15 +264,14 @@ export const BulkEmailModal: React.FC<BulkEmailModalProps> = ({
       return;
     }
 
-    if (!accessToken) {
-      if (onAddToast) {
-        onAddToast(
-          'Workspace Authorization Required',
-          'Please sign in with Google in the Admin Console to authorize Gmail API dispatch.',
-          'error'
-        );
+    let gmailToken = accessToken;
+    if (!gmailToken) {
+      try {
+        gmailToken = await getGmailSendToken();
+      } catch (err: any) {
+        if (onAddToast) onAddToast('Gmail Authorization Required', err.message || 'Could not authorize Gmail sending.', 'error');
+        return;
       }
-      return;
     }
 
     setIsSending(true);
@@ -362,7 +361,7 @@ export const BulkEmailModal: React.FC<BulkEmailModalProps> = ({
         }
 
         // 3. Dispatch email via Gmail API
-        await sendGmailMessage(accessToken, app.email, finalSubject, finalBody, attachmentsPayload);
+        await sendGmailMessage(gmailToken, app.email, finalSubject, finalBody, attachmentsPayload);
 
         // 4. Update application in Firestore
         const appRef = doc(db, 'applications', app.id);
