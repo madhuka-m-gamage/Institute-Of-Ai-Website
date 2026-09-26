@@ -16,36 +16,43 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Stopgap until the role model lands: only the site owner's verified account may access applicant data.
+    function isSiteAdmin() {
+      return isSignedIn()
+        && request.auth.token.email == 'madhuka.m.gamage@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
     // Users Collection
     match /users/{userId} {
-      allow read: if isSignedIn();
+      allow read: if isOwner(userId) || isSiteAdmin();
       allow write: if isOwner(userId);
     }
 
     // Applications Collection
     match /applications/{applicationId} {
-      allow read: if isSignedIn();
+      allow read: if isSiteAdmin();
       allow create: if true; // Allow students & applicants to submit enrollment forms
-      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || request.auth.token.email != null);
+      allow update, delete: if isSiteAdmin();
     }
 
     // Enterprise Inquiries Collection
     match /enterpriseInquiries/{inquiryId} {
-      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || request.auth.token.email != null);
+      allow read: if isSiteAdmin();
       allow create: if true; // Allow organizations and visitors to submit custom enterprise proposals
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update, delete: if isSiteAdmin();
     }
 
     // Contact Messages Collection
     match /contactMessages/{messageId} {
-      allow read: if isSignedIn();
+      allow read: if isSiteAdmin();
       allow create: if true; // Allow visitors to submit contact inquiries
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update, delete: if isSiteAdmin();
     }
 
     // Application Workflows Collection
     match /application_workflows/{workflowId} {
-      allow read: if isSignedIn();
+      allow read: if isSiteAdmin();
       allow create: if true;
       allow update, delete: if false;
     }
