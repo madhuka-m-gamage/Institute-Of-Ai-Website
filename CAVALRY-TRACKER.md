@@ -42,6 +42,16 @@
 | Public-form abuse: rules field/type/size validation + Firebase App Check (reCAPTCHA Enterprise) enforced on Firestore | No new backend (FB-3, PUB-1, PUB-3) | human, via recon | 2026-09-26 | `firestore.rules`, `src/lib/firebase.ts`, `firebase-applet-config.json`, Firebase console (Breach) |
 | Remove Express `server.ts`; plain Vite scripts (`dev: vite`, `build: vite build`, `preview: vite preview`); drop `express`, `dotenv`, `@google/genai`; update CLAUDE.md/README | No server routes remain after Gemini removal (SRV-2, SRV-8, SRV-9, SRV-12, SRV-17) | human, via recon | 2026-09-26 | `server.ts`, `package.json`, `CLAUDE.md`, `README.md` |
 | Default (not asked, override if wrong): add baseline security headers in `vercel.json` (`X-Frame-Options`/`frame-ancestors 'none'`, `X-Content-Type-Options`, `Referrer-Policy`), CSP in report-only first; standardize on npm (delete `bun.lock`) | Standard hardening (SRV-7); docs already say npm (SRV-17) | recon default | 2026-09-26 | `vercel.json`, `bun.lock` |
+| **Live state:** production runs origin/main's permissive `firestore.rules`; Email/Password provider enabled with public sign-up disabled; Google sign-in open to any account | Owner confirmed. Consequence: FB-1/FB-2 are **live** — any Google account can read/update/delete all applications today (sign-up being disabled does not help) | human, via status | 2026-09-26 | `firestore.rules`, Breach |
+| Staff: owner (`madhuka.m.gamage@gmail.com`) is the sole `super_admin`; others added later via Staff & Roles. Staff use personal Gmail — no Workspace-domain (`hd`) restriction possible | Owner confirmed | human, via status | 2026-09-26 | Q1, Breach (seed role doc) |
+| Auth user list contains only the owner's account(s) — no evidence of past access to applicant PII | Owner checked | human, via status | 2026-09-26 | Breach |
+| OAuth consent screen is External / Testing. Google should block non-test-users at the consent step, which likely limits who can reach FB-1 through Google sign-in today — but that is console config, not rules enforcement, and it also caps staff at 100 test users | Owner confirmed | human, via status | 2026-09-26 | Q4, Breach |
+| Keys: budget alert exists; `GEMINI_API_KEY` in Vercel and Firebase apiKey restrictions unconfirmed (treat as not in place). Breach: remove `GEMINI_API_KEY` after Q6 and restrict the Firebase apiKey | Owner answered | human, via status | 2026-09-26 | Q6, Breach |
+| Emergency stopgap before Charge: rules-only hotfix restricting reads/updates/deletes of PII collections to the owner's verified email; public creates unchanged; emulator-tested; deploy only on explicit owner go-ahead. Superseded by Q1 | Live exposure (FB-1/FB-2) | human, via status | 2026-09-26 | `firestore.rules`, `tests/rules/` |
+| App Check not enabled today → set up in Q12, enforce in Breach | Owner confirmed | human, via status | 2026-09-26 | Q12, Breach |
+| Marketing claims (faculty, papers, benchmarks, "AES-256-GCM", "<24h guarantee", address) are placeholders — fix later, not in Charge; tracked in backlog | Owner confirmed (PUB-15) | human, via status | 2026-09-26 | `src/pages/*`, `src/data/mockData.ts` |
+| Nothing external sends applicant confirmation emails — server-side confirmation backlog item stays open | Owner confirmed (PUB D-4) | human, via status | 2026-09-26 | backlog |
+| Volume is small (<500 applications total) — 500-op batch chunking and pagination (ADM-8, ADM-10, GWS-11 chunking) are low priority | Owner confirmed | human, via status | 2026-09-26 | Q5, Q9, Q11 |
 
 ## Characterization coverage (Fortify)
 
@@ -62,17 +72,7 @@ Every test is a *characterization* test: it pins current behavior, including bug
 
 ## Open questions for human
 
-- **[recon, blocking — urgency]** Which `firestore.rules` are actually live on the named Firestore database? origin/main has no `firebase.json`; unpushed commit `19232dc` adds a `deploy:rules` script — has it been run? This decides whether FB-1/FB-2 are live today.
-- **[recon, blocking — urgency]** Is Email/Password sign-up enabled in Firebase Auth? Combined with open Google sign-in, this is how any internet user becomes "admin" under the origin/main rules (FB-1, ADM-1).
-- **[recon, blocking for Breach]** Who are the admins/staff, and do they share a Google Workspace domain? Needed to seed roles (FB-1) and to decide Google-only/domain-restricted sign-in.
-- **[recon, non-blocking]** Review the Firebase Auth user list for non-staff accounts that may already have read applicant PII (possible past exposure).
-- **[recon, non-blocking]** OAuth consent screen: Internal vs External, Testing vs Production, verification status (GWS-3, FB-6).
-- **[recon, non-blocking]** Is `GEMINI_API_KEY` set in Vercel? Is `gemini-3.7-flash` a valid model id? Are the Firebase/Gemini keys restricted in GCP, with a budget alert? (SRV-5, SRV-15, FB-10)
-- **[recon, non-blocking]** Is App Check enabled in the Firebase console? (FB-3, PUB-1)
-- **[recon, non-blocking]** Marketing claims on the public pages (faculty, papers, benchmark numbers, "AES-256-GCM", address, "<24h guarantee") — real or placeholder? (PUB-15)
-- **[recon, non-blocking]** Does anything outside the repo send applicant confirmation emails? The UI says "confirmation sent" but no code sends one (PUB D-4).
-- **[recon, non-blocking]** Expected volume: applications total, and largest bulk email/status batch (500-op Firestore batch limit — ADM-10, GWS-11).
-- **[recon, non-blocking]** Do any existing docs have a non-string name or a Timestamp `createdAt`? Either crashes the admin list/CSV (FB-12, FB-15).
+_None open._ (Existing-data shape question — FB-12/FB-15 — closed as moot: Q9 makes the helpers tolerant regardless; with small volume a spot check during Breach suffices.)
 
 ## Follow-up backlog
 
@@ -92,6 +92,7 @@ Every test is a *characterization* test: it pins current behavior, including bug
 | **Q12** App Check (reCAPTCHA Enterprise) client init + enforcement | `src/lib/firebase.ts`, `firebase-applet-config.json` | Spam/abuse of public creates (FB-3, FB-10, PUB-1) | Q1; console enforcement in Breach | recon (02, 03) | open |
 | **Q13** Security headers in `vercel.json` (frame-ancestors, nosniff, referrer policy, CSP report-only); npm only (delete `bun.lock`) | `vercel.json`, `bun.lock` | Clickjackable admin (SRV-7); lockfile drift (SRV-17) | Q6 | recon (01) | open |
 | Low-priority cleanup: routing edge cases/404 (PUB-13), modal a11y + `maxLength` (PUB-14), lazy-load AdminPage + drop footer admin link (PUB-7, C-5), hotlinked AI Studio images/favicons (PUB-16, SRV-19), error message PII (FB-11), status enum drift (ADM-16), stale modal state (ADM-18), blueprint drift (DOC-*), package name/metadata (SRV-4) | see findings docs 01–05 | Quality/robustness; none security-critical | after Q1–Q13 | recon | open |
+| Replace placeholder marketing claims (faculty, papers, benchmark numbers, "blockchain credentials", "AES-256-GCM", "<24h guarantee", Colombo Tech Park address) with real content or remove them before a wider launch | `src/pages/AboutPage.tsx`, `src/pages/ResearchPage.tsx`, `src/pages/HomePage.tsx`, `src/pages/ContactPage.tsx`, `src/data/mockData.ts` | Unverifiable claims on a public admissions site (PUB-15) | owner content | status (answered open question) | open |
 | Server-side applicant confirmation emails (replacing the removed false claim) | new | Applicants currently get no confirmation | needs a sending backend decision | recon (03) | open |
 | Breach checklist (console, not code): deploy rules; seed `super_admin`; disable public Email/Password sign-up; enforce App Check; restrict Firebase API key; OAuth consent screen scopes; remove `GEMINI_API_KEY` from Vercel; review Auth user list for past exposure | Firebase/GCP/Vercel consoles | Code fixes are inert until live config matches | Q1–Q13 merged | recon | open |
 | `npm run lint` does not type-check any React code: `@types/react`/`@types/react-dom` are not installed and `tsconfig.json` is non-strict, so `react` resolves to `any` and wrong/missing JSX props (e.g. GWS-2, `BulkEmailModal.tsx:762`) pass. Add the types (and consider `strict`), then fix the errors that surface | `package.json`, `tsconfig.json`, all `src/**/*.tsx` | The only "lint" gives Charge a false safety net on every UI change | best done early in Charge (before Q5/Q8/Q11) so later items get real type checks; expect a batch of new type errors | fortify | open |
