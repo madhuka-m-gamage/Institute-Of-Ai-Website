@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { db } from '../lib/firebase';
-import { doc, updateDoc, addDoc, collection } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
+import { logAdminAction } from '../services/auditLog';
 import { sendGmailMessage } from '../services/workspace';
 import { EmailRichPreview } from './EmailRichPreview';
 import {
@@ -66,19 +66,12 @@ export const EnterpriseInquiryModal: React.FC<EnterpriseInquiryModalProps> = ({
     try {
       await sendGmailMessage(accessToken, inquiry.workEmail, customSubject, customBody);
 
-      // Audit log entry
-      try {
-        await addDoc(collection(db, 'adminAuditLogs'), {
-          timestamp: new Date().toISOString(),
-          actorEmail: currentAdminEmail,
-          action: `Dispatched enterprise scope to ${inquiry.workEmail}`,
-          entityType: 'enterprise_inquiry',
-          entityId: inquiry.id,
-          details: `Company: ${inquiry.companyName}, Team: ${inquiry.teamSize}. Subject: ${customSubject}`,
-        });
-      } catch (auditErr) {
-        console.warn('Audit log write error:', auditErr);
-      }
+      await logAdminAction({
+        action: `Dispatched enterprise scope to ${inquiry.companyName}`,
+        entityType: 'enterprise_inquiry',
+        entityId: inquiry.id,
+        details: `Team: ${inquiry.teamSize}. Subject: ${customSubject}`,
+      });
 
       if (onAddToast) {
         onAddToast('Enterprise Response Sent', `Proposal email dispatched to ${inquiry.workEmail}`, 'success');

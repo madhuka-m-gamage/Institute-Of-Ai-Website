@@ -127,7 +127,19 @@ service cloud.firestore {
     // Admin Audit Logs Collection
     match /adminAuditLogs/{logId} {
       allow read: if isStaff();
-      allow create: if isStaff();
+
+      // Append-only and unforgeable: the actor must be the caller and the timestamp the server time.
+      allow create: if isStaff()
+        && request.resource.data.keys().hasOnly([
+          'action', 'entityType', 'entityId', 'details', 'activityType', 'previousStatus', 'newStatus',
+          'recipientCount', 'candidateName', 'candidateEmail', 'courseTitle', 'subject', 'attachments',
+          'actorEmail', 'timestamp'
+        ])
+        && request.resource.data.actorEmail == request.auth.token.email
+        && request.resource.data.timestamp == request.time
+        && request.resource.data.action is string && request.resource.data.action.size() <= 500
+        && request.resource.data.details is string && request.resource.data.details.size() <= 4000;
+
       allow update, delete: if false;
     }
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
-import { AdminAuditLog, StudentApplication } from '../types';
+import { AdminAuditLog, StudentApplication, getApplicationTimestamp } from '../types';
 import { ShieldCheck, History, User, Clock, Filter, RefreshCw, Layers, Database, Activity, Mail } from 'lucide-react';
 import { ListItemSkeleton } from './Skeleton';
 import { RecentActivityPanel } from './RecentActivityPanel';
@@ -29,29 +29,14 @@ export const AdminAuditTrailPanel: React.FC<AdminAuditTrailPanelProps> = ({
     try {
       const q = query(collection(db, 'adminAuditLogs'), orderBy('timestamp', 'desc'), limit(50));
       const snap = await getDocs(q);
-      const fetched = snap.docs.map((d) => ({ id: d.id, ...d.data() } as AdminAuditLog));
+      const fetched = snap.docs.map((d) => {
+        const data = d.data();
+        return { id: d.id, ...data, timestamp: new Date(getApplicationTimestamp(data)).toISOString() } as AdminAuditLog;
+      });
       setLogs(fetched);
     } catch (err: any) {
       console.warn('Audit logs read notice:', err);
-      // Fallback in-memory initial audit baseline
-      setLogs([
-        {
-          id: 'log-seed-1',
-          timestamp: new Date().toISOString(),
-          actorEmail: 'system@instituteofai.com',
-          action: 'Institutional Command Center Initialized',
-          entityType: 'system',
-          details: 'Admin Console services and Firestore real-time listeners active.',
-        },
-        {
-          id: 'log-seed-2',
-          timestamp: new Date(Date.now() - 3600000).toISOString(),
-          actorEmail: 'admissions@instituteofai.com',
-          action: 'Admissions Pipeline Synced',
-          entityType: 'application',
-          details: 'Verified applicants for upcoming AI Master Practitioner and Survival tracks.',
-        },
-      ]);
+      setLogs([]);
     } finally {
       setLoading(false);
     }

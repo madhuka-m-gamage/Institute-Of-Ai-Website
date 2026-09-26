@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { db } from '../lib/firebase';
-import { doc, writeBatch, collection, addDoc } from 'firebase/firestore';
+import { doc, writeBatch } from 'firebase/firestore';
+import { logAdminAction } from '../services/auditLog';
 import { StudentApplication, ApplicationStatus, getCandidateName } from '../types';
 import { StatusBadge } from './StatusBadge';
 import {
@@ -65,21 +66,14 @@ export const BulkStatusModal: React.FC<BulkStatusModalProps> = ({
 
       await batch.commit();
 
-      // Log bulk audit entry
-      try {
-        await addDoc(collection(db, 'adminAuditLogs'), {
-          timestamp,
-          actorEmail: currentAdminEmail,
-          action: `Bulk Status Update: ${selectedApplications.length} candidate(s) transitioned to ${targetStatus.toUpperCase()}`,
-          entityType: 'application',
-          details: `Updated candidates: ${selectedApplications.map((a) => `${a.candidateName || a.fullName || a.email} (${a.email})`).join(', ')}. Batch Note: ${batchNotes || 'None'}.`,
-          newStatus: targetStatus,
-          recipientCount: selectedApplications.length,
-          activityType: 'bulk_status',
-        });
-      } catch (auditErr) {
-        console.warn('Audit log write error:', auditErr);
-      }
+      await logAdminAction({
+        action: `Bulk Status Update: ${selectedApplications.length} candidate(s) transitioned to ${targetStatus.toUpperCase()}`,
+        entityType: 'application',
+        details: `Application IDs: ${selectedApplications.map((a) => a.id).join(', ')}. Batch Note: ${batchNotes || 'None'}.`,
+        newStatus: targetStatus,
+        recipientCount: selectedApplications.length,
+        activityType: 'bulk_status',
+      });
 
       onBulkUpdated(updatedList);
       if (onAddToast) {

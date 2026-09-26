@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../lib/firebase';
-import { doc, updateDoc, collection, addDoc, writeBatch } from 'firebase/firestore';
+import { doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { logAdminAction } from '../services/auditLog';
 import { StudentApplication, ApplicationStatus, getCandidateName } from '../types';
 import { sendGmailMessage, EmailAttachmentPayload } from '../services/workspace';
 import {
@@ -410,27 +411,20 @@ export const BulkEmailModal: React.FC<BulkEmailModalProps> = ({
     }
 
     // Log mass dispatch in admin audit logs
-    try {
-      const successCount = logs.filter((l) => l.success).length;
-      await addDoc(collection(db, 'adminAuditLogs'), {
-        timestamp: new Date().toISOString(),
-        actorEmail: currentAdminEmail,
-        action: `Mass Email Dispatched (${successCount}/${recipientList.length} successful)`,
-        entityType: 'application',
-        details: `Template: ${templateType.toUpperCase()}. Target status: ${syncStatus}. Dispatched to: ${recipientList.map((r) => r.email).join(', ')}.`,
-        activityType: 'bulk_email',
-        recipientCount: successCount,
-        newStatus: syncStatus !== 'keep' ? syncStatus : undefined,
-      });
-    } catch (auditErr) {
-      console.warn('Audit log write error:', auditErr);
-    }
+    const successCount = logs.filter((l) => l.success).length;
+    await logAdminAction({
+      action: `Mass Email Dispatched (${successCount}/${recipientList.length} successful)`,
+      entityType: 'application',
+      details: `Template: ${templateType.toUpperCase()}. Target status: ${syncStatus}. Application IDs: ${recipientList.map((r) => r.id).join(', ')}.`,
+      activityType: 'bulk_email',
+      recipientCount: successCount,
+      newStatus: syncStatus !== 'keep' ? syncStatus : undefined,
+    });
 
     setIsSending(false);
     setIsDone(true);
     onBulkCompleted(updatedApps);
 
-    const successCount = logs.filter((l) => l.success).length;
     if (onAddToast) {
       onAddToast(
         'Mass Dispatch Completed',

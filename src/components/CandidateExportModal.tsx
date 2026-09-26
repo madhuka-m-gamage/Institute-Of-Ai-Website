@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { db } from '../lib/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { logAdminAction } from '../services/auditLog';
 import { StudentApplication } from '../types';
 import { generateCandidateCsv, downloadCsvString, CsvExportOptions } from '../services/csvExport';
 import {
@@ -121,18 +120,11 @@ export const CandidateExportModal: React.FC<CandidateExportModalProps> = ({
       const success = downloadCsvString(result.filename, result.csvString);
 
       if (success) {
-        // Record audit trail in Firestore
-        try {
-          await addDoc(collection(db, 'adminAuditLogs'), {
-            timestamp: new Date().toISOString(),
-            actorEmail: currentAdminEmail,
-            action: `Candidate Report CSV Exported (${result.count} records)`,
-            entityType: 'report',
-            details: `Filename: ${result.filename}. Scope: ${exportScope.toUpperCase()}. Preset: ${preset.toUpperCase()}. Filter: ${currentStatusFilter}. Search: "${currentSearchQuery || 'None'}".`,
-          });
-        } catch (auditErr) {
-          console.warn('Audit log write error for CSV export:', auditErr);
-        }
+        await logAdminAction({
+          action: `Candidate Report CSV Exported (${result.count} records)`,
+          entityType: 'report',
+          details: `Filename: ${result.filename}. Scope: ${exportScope.toUpperCase()}. Preset: ${preset.toUpperCase()}. Filter: ${currentStatusFilter}. Search: "${currentSearchQuery || 'None'}".`,
+        });
 
         if (onAddToast) {
           onAddToast(
