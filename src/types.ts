@@ -225,7 +225,7 @@ export interface AdminAuditLog {
   actorEmail: string;
   actorName?: string;
   action: string;
-  entityType: 'application' | 'enterprise_inquiry' | 'contact_message' | 'user_role' | 'workspace_doc' | 'workspace_event' | 'system';
+  entityType: 'application' | 'enterprise_inquiry' | 'contact_message' | 'user_role' | 'workspace_doc' | 'workspace_event' | 'report' | 'system';
   entityId?: string;
   details: string;
 }

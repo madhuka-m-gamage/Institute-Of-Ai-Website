@@ -1,7 +1,7 @@
 import { describe, it, beforeAll, afterAll, beforeEach } from 'vitest';
 import { initializeTestEnvironment, assertFails, assertSucceeds, RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
-import { doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 let env: RulesTestEnvironment;
 
@@ -118,12 +118,30 @@ describe('CHARACTERIZATION rules: application_workflows — FB-4/ADM-6/PUB-4, fl
   it('workflow docs are immutable', () => assertFails(updateDoc(doc(as('super'), 'application_workflows/w1'), { a: 2 })));
 });
 
-describe('CHARACTERIZATION rules: adminAuditLogs — FB-5/ADM-3, tightened in Charge Q2', () => {
-  it('staff can write audit logs (actor/timestamp not yet enforced)', () =>
-    assertSucceeds(addDoc(collection(as('officer'), 'adminAuditLogs'), { action: 'x', actorEmail: 'anyone@x.com' })));
-  it('non-staff cannot write audit logs', () => assertFails(addDoc(collection(stranger(), 'adminAuditLogs'), { action: 'x' })));
-  it('audit logs are immutable', async () => {
+describe('Q2 rules: adminAuditLogs is a staff-only, unforgeable, append-only trail (FB-5/ADM-3/GWS-12)', () => {
+  const entry = (actorEmail: string) => ({
+    action: 'Updated applicant status to ACCEPTED', entityType: 'application', entityId: 'app1',
+    details: 'Status transitioned to ACCEPTED.', actorEmail, timestamp: serverTimestamp(),
+  });
+
+  it('staff can append an entry stamped with their own email and the server time', () =>
+    assertSucceeds(addDoc(collection(as('officer'), 'adminAuditLogs'), entry('officer@x.com'))));
+  it('rejects an entry claiming another actor', () =>
+    assertFails(addDoc(collection(as('officer'), 'adminAuditLogs'), entry('super@x.com'))));
+  it('rejects a client-supplied timestamp', () =>
+    assertFails(addDoc(collection(as('officer'), 'adminAuditLogs'), { ...entry('officer@x.com'), timestamp: '2026-01-01T00:00:00.000Z' })));
+  it('rejects unknown fields', () =>
+    assertFails(addDoc(collection(as('officer'), 'adminAuditLogs'), { ...entry('officer@x.com'), forged: true })));
+  it('rejects oversized details', () =>
+    assertFails(addDoc(collection(as('officer'), 'adminAuditLogs'), { ...entry('officer@x.com'), details: 'x'.repeat(5000) })));
+  it('non-staff cannot write audit logs', () => assertFails(addDoc(collection(stranger(), 'adminAuditLogs'), entry('stranger@x.com'))));
+  it('staff can read; non-staff cannot', async () => {
+    await assertSucceeds(getDocs(collection(as('faculty'), 'adminAuditLogs')));
+    await assertFails(getDocs(collection(stranger(), 'adminAuditLogs')));
+  });
+  it('audit logs are immutable and undeletable, even for super_admin', async () => {
     await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'adminAuditLogs/l1'), { action: 'x' }));
     await assertFails(updateDoc(doc(as('super'), 'adminAuditLogs/l1'), { action: 'y' }));
+    await assertFails(deleteDoc(doc(as('super'), 'adminAuditLogs/l1')));
   });
 });

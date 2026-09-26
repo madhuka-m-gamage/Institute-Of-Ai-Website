@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../lib/firebase';
-import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
+import { logAdminAction } from '../services/auditLog';
 import { StudentApplication, ApplicationStatus, getCandidateName, formatApplicationDate } from '../types';
 import { sendGmailMessage, EmailAttachmentPayload } from '../services/workspace';
 import {
@@ -277,25 +278,18 @@ export const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
 
       await updateDoc(appRef, updatePayload);
 
-      // Log audit entry
-      try {
-        await addDoc(collection(db, 'adminAuditLogs'), {
-          timestamp: new Date().toISOString(),
-          actorEmail: currentAdminEmail,
-          action: `Updated applicant status to ${status.toUpperCase()}`,
-          entityType: 'application',
-          entityId: application.id,
-          details: `Applicant: ${candidateName} (${application.email}) for ${application.courseTitle || 'Applied Program'}. Status transitioned to ${status.replace('_', ' ').toUpperCase()}. ${internalNotes ? `Notes: ${internalNotes}` : ''}`,
-          candidateName,
-          candidateEmail: application.email,
-          courseTitle: application.courseTitle || (application as any).courseName,
-          previousStatus: application.status || 'submitted',
-          newStatus: status,
-          activityType: 'status_change',
-        });
-      } catch (err) {
-        console.warn('Audit log write error:', err);
-      }
+      await logAdminAction({
+        action: `Updated applicant status to ${status.toUpperCase()}`,
+        entityType: 'application',
+        entityId: application.id,
+        details: `Status transitioned to ${status.replace('_', ' ').toUpperCase()} for ${application.courseTitle || 'Applied Program'}.`,
+        candidateName,
+        candidateEmail: application.email,
+        courseTitle: application.courseTitle || (application as any).courseName,
+        previousStatus: application.status || 'submitted',
+        newStatus: status,
+        activityType: 'status_change',
+      });
 
       const updated: StudentApplication = {
         ...application,
@@ -374,25 +368,19 @@ export const ApplicationDetailModal: React.FC<ApplicationDetailModalProps> = ({
       });
 
       // 4. Log audit entry
-      try {
-        await addDoc(collection(db, 'adminAuditLogs'), {
-          timestamp: new Date().toISOString(),
-          actorEmail: currentAdminEmail,
-          action: `Dispatched ${status.toUpperCase()} decision email with ${attachmentsPayload.length} PDF attachment(s) to ${application.email}`,
-          entityType: 'application',
-          entityId: application.id,
-          details: `Dispatched via Gmail API to ${candidateName} <${application.email}> for ${application.courseTitle}. Attached: ${attachedDocNames.join(', ') || 'None'}. Subject: ${finalSubject}`,
-          candidateName,
-          candidateEmail: application.email,
-          courseTitle: application.courseTitle || (application as any).courseName,
-          newStatus: status,
-          subject: finalSubject,
-          attachments: attachedDocNames,
-          activityType: 'decision_letter',
-        });
-      } catch (auditErr) {
-        console.warn('Audit log write warning:', auditErr);
-      }
+      await logAdminAction({
+        action: `Dispatched ${status.toUpperCase()} decision email with ${attachmentsPayload.length} PDF attachment(s)`,
+        entityType: 'application',
+        entityId: application.id,
+        details: `Dispatched via Gmail API for ${application.courseTitle}. Attached: ${attachedDocNames.join(', ') || 'None'}. Subject: ${finalSubject}`,
+        candidateName,
+        candidateEmail: application.email,
+        courseTitle: application.courseTitle || (application as any).courseName,
+        newStatus: status,
+        subject: finalSubject,
+        attachments: attachedDocNames,
+        activityType: 'decision_letter',
+      });
 
       if (onAddToast) {
         const attachmentMsg = attachedDocNames.length > 0 ? ` with ${attachedDocNames.length} PDF attachment(s)` : '';
