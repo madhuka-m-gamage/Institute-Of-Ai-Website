@@ -16,77 +16,114 @@ beforeEach(async () => {
   await env.clearFirestore();
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
-    await setDoc(doc(db, 'applications', 'app1'), { applicantName: 'A', email: 'a@x.com', status: 'submitted', userId: 'guest_applicant' });
+    await setDoc(doc(db, 'users', 'super'), { uid: 'super', email: 'super@x.com', role: 'super_admin' });
+    await setDoc(doc(db, 'users', 'officer'), { uid: 'officer', email: 'officer@x.com', role: 'admissions_officer' });
+    await setDoc(doc(db, 'users', 'faculty'), { uid: 'faculty', email: 'faculty@x.com', role: 'lead_faculty' });
+    await setDoc(doc(db, 'users', 'mentor'), { uid: 'mentor', email: 'mentor@x.com', role: 'curriculum_mentor' });
+    await setDoc(doc(db, 'users', 'norole'), { uid: 'norole', email: 'norole@x.com' });
+    await setDoc(doc(db, 'applications', 'app1'), { applicantName: 'A', email: 'a@x.com', status: 'submitted', userId: 'guest_applicant', courseId: 'c', createdAt: 'x' });
     await setDoc(doc(db, 'enterpriseInquiries', 'inq1'), { companyName: 'Co', workEmail: 'w@co.com', userId: 'guest_enterprise' });
     await setDoc(doc(db, 'contactMessages', 'msg1'), { email: 's@x.com', message: 'hi', userId: 'guest_contact' });
-    await setDoc(doc(db, 'users', 'victim'), { email: 'v@x.com' });
+    await setDoc(doc(db, 'application_workflows', 'w1'), { a: 1 });
   });
 });
 
-const OWNER_EMAIL = 'madhuka.m.gamage@gmail.com';
 const anon = () => env.unauthenticatedContext().firestore();
-// Any internet user: Google sign-in or a self-created email/password account.
-const stranger = () => env.authenticatedContext('stranger', { email: 'random@gmail.com', email_verified: true }).firestore();
-const owner = () => env.authenticatedContext('owner', { email: OWNER_EMAIL, email_verified: true }).firestore();
-const ownerUnverified = () => env.authenticatedContext('spoof', { email: OWNER_EMAIL, email_verified: false }).firestore();
+const as = (uid: string) => env.authenticatedContext(uid, { email: `${uid}@x.com`, email_verified: true }).firestore();
+// Any internet user who signs in (Google or email/password) but has no staff role.
+const stranger = () => as('stranger');
 
-// Stopgap hotfix: PII access restricted to the owner's verified email. Superseded by Charge Q1 (role model).
-describe('STOPGAP rules: PII access is owner-only — FB-1/FB-2/ADM-1', () => {
+const validApplication = (userId = 'guest_applicant') => ({
+  fullName: 'Ada Lovelace', applicantName: 'Ada Lovelace', name: 'Ada Lovelace', candidateName: 'Ada Lovelace',
+  email: 'ada@example.com', phone: '', courseId: 'ai-master', courseTitle: 'AI Master', background: 'Intermediate',
+  experienceLevel: 'Intermediate', pythonProficiency: 'Intermediate', status: 'submitted', notes: 'Phone: ',
+  userId, createdAt: '2026-09-26T00:00:00.000Z',
+});
+const validInquiry = () => ({
+  companyName: 'Co', contactName: 'Pat', workEmail: 'pat@co.com', phone: '', jobTitle: '', teamSize: '15-40',
+  primaryFocus: 'x', deliveryFormat: 'x', timeline: 'x', customRequirements: '', userId: 'guest_enterprise', createdAt: 'x',
+});
+const validContact = () => ({ name: 'Sam', email: 's@x.com', inquiryType: 'academic', message: 'hi', userId: 'guest_contact', createdAt: 'x' });
+
+describe('Q1 rules: applicant data is staff-only (FB-1/FB-2/ADM-1)', () => {
   it('anonymous cannot read applications', () => assertFails(getDoc(doc(anon(), 'applications/app1'))));
-  it('signed-in stranger cannot read applications', () => assertFails(getDocs(collection(stranger(), 'applications'))));
-  it('signed-in stranger cannot read contact messages', () => assertFails(getDocs(collection(stranger(), 'contactMessages'))));
-  it('signed-in stranger cannot read enterprise inquiries', () => assertFails(getDoc(doc(stranger(), 'enterpriseInquiries/inq1'))));
-  it('signed-in stranger cannot read workflow events', () => assertFails(getDocs(collection(stranger(), 'application_workflows'))));
-  it('signed-in stranger cannot update an application', () =>
-    assertFails(updateDoc(doc(stranger(), 'applications/app1'), { status: 'accepted' })));
-  it('signed-in stranger cannot delete an application', () => assertFails(deleteDoc(doc(stranger(), 'applications/app1'))));
-  it('stranger cannot update enterprise inquiries', () =>
-    assertFails(updateDoc(doc(stranger(), 'enterpriseInquiries/inq1'), { companyName: 'X' })));
-  it('unverified account claiming the owner email is denied', () => assertFails(getDocs(collection(ownerUnverified(), 'applications'))));
+  it('signed-in non-staff cannot read applications', () => assertFails(getDocs(collection(stranger(), 'applications'))));
+  it('signed-in non-staff cannot read contact messages', () => assertFails(getDocs(collection(stranger(), 'contactMessages'))));
+  it('signed-in non-staff cannot read enterprise inquiries', () => assertFails(getDoc(doc(stranger(), 'enterpriseInquiries/inq1'))));
+  it('signed-in non-staff cannot read workflow events', () => assertFails(getDocs(collection(stranger(), 'application_workflows'))));
+  it('signed-in non-staff cannot update or delete an application', async () => {
+    await assertFails(updateDoc(doc(stranger(), 'applications/app1'), { status: 'accepted' }));
+    await assertFails(deleteDoc(doc(stranger(), 'applications/app1')));
+  });
+  it('a user doc without a role grants nothing', () => assertFails(getDocs(collection(as('norole'), 'applications'))));
 
-  it('owner reads applications, inquiries, contact messages, workflows', async () => {
-    await assertSucceeds(getDocs(collection(owner(), 'applications')));
-    await assertSucceeds(getDocs(collection(owner(), 'enterpriseInquiries')));
-    await assertSucceeds(getDocs(collection(owner(), 'contactMessages')));
-    await assertSucceeds(getDocs(collection(owner(), 'application_workflows')));
+  it('every staff role can read applications', async () => {
+    for (const uid of ['super', 'officer', 'faculty', 'mentor']) {
+      await assertSucceeds(getDocs(collection(as(uid), 'applications')));
+    }
   });
-  it('owner updates and deletes applications', async () => {
-    await assertSucceeds(updateDoc(doc(owner(), 'applications/app1'), { status: 'accepted' }));
-    await assertSucceeds(deleteDoc(doc(owner(), 'applications/app1')));
+  it('super_admin and admissions_officer update applications; faculty and mentor cannot', async () => {
+    await assertSucceeds(updateDoc(doc(as('super'), 'applications/app1'), { status: 'accepted' }));
+    await assertSucceeds(updateDoc(doc(as('officer'), 'applications/app1'), { status: 'waitlisted' }));
+    await assertFails(updateDoc(doc(as('faculty'), 'applications/app1'), { status: 'accepted' }));
+    await assertFails(updateDoc(doc(as('mentor'), 'applications/app1'), { status: 'accepted' }));
   });
-  it('owner updates enterprise inquiries and contact messages', async () => {
-    await assertSucceeds(updateDoc(doc(owner(), 'enterpriseInquiries/inq1'), { companyName: 'X' }));
-    await assertSucceeds(updateDoc(doc(owner(), 'contactMessages/msg1'), { read: true }));
+  it('only super_admin deletes applications', async () => {
+    await assertFails(deleteDoc(doc(as('officer'), 'applications/app1')));
+    await assertSucceeds(deleteDoc(doc(as('super'), 'applications/app1')));
+  });
+  it('super_admin and admissions_officer manage inquiries and contact messages; faculty cannot', async () => {
+    await assertSucceeds(getDoc(doc(as('officer'), 'enterpriseInquiries/inq1')));
+    await assertSucceeds(updateDoc(doc(as('super'), 'contactMessages/msg1'), { read: true }));
+    await assertFails(getDoc(doc(as('faculty'), 'enterpriseInquiries/inq1')));
   });
 });
 
-describe('CHARACTERIZATION rules: unvalidated public create — FB-3/ADM-2/PUB-1, flips in Charge Q1', () => {
-  it('BUG: anonymous creates an application pre-set to accepted with arbitrary fields', () =>
-    assertSucceeds(addDoc(collection(anon(), 'applications'), { status: 'accepted', decisionLetterSent: true, junk: 'x'.repeat(100_000) })));
-  it('BUG: anonymous creates arbitrary enterprise inquiry', () =>
-    assertSucceeds(addDoc(collection(anon(), 'enterpriseInquiries'), { anything: true })));
-  it('BUG: anonymous creates arbitrary contact message', () =>
-    assertSucceeds(addDoc(collection(anon(), 'contactMessages'), { anything: true })));
+describe('Q1 rules: public submissions are validated (FB-3/ADM-2/PUB-1)', () => {
+  it('accepts the exact application the Apply form writes', () =>
+    assertSucceeds(addDoc(collection(anon(), 'applications'), validApplication())));
+  it('rejects an application pre-set to accepted', () =>
+    assertFails(addDoc(collection(anon(), 'applications'), { ...validApplication(), status: 'accepted' })));
+  it('rejects unknown fields', () =>
+    assertFails(addDoc(collection(anon(), 'applications'), { ...validApplication(), decisionLetterSent: true })));
+  it('rejects oversized fields', () =>
+    assertFails(addDoc(collection(anon(), 'applications'), { ...validApplication(), notes: 'x'.repeat(100_000) })));
+  it('rejects an anonymous application claiming another user id', () =>
+    assertFails(addDoc(collection(anon(), 'applications'), validApplication('someone-else'))));
+  it('accepts the exact enterprise inquiry the Enterprise form writes', () =>
+    assertSucceeds(addDoc(collection(anon(), 'enterpriseInquiries'), validInquiry())));
+  it('rejects an arbitrary enterprise inquiry', () =>
+    assertFails(addDoc(collection(anon(), 'enterpriseInquiries'), { anything: true })));
+  it('accepts the exact contact message the Contact page writes', () =>
+    assertSucceeds(addDoc(collection(anon(), 'contactMessages'), validContact())));
+  it('rejects a contact message with an unknown inquiry type', () =>
+    assertFails(addDoc(collection(anon(), 'contactMessages'), { ...validContact(), inquiryType: 'spam' })));
+});
+
+describe('Q1 rules: users collection (FB-9/ADM-5)', () => {
+  it('a user may create their own role-less profile', () =>
+    assertSucceeds(setDoc(doc(stranger(), 'users/stranger'), { uid: 'stranger', email: 'stranger@x.com' })));
+  it('a user cannot grant themselves a role on create', () =>
+    assertFails(setDoc(doc(stranger(), 'users/stranger'), { role: 'super_admin' })));
+  it('a user cannot change their own role', () =>
+    assertFails(updateDoc(doc(as('officer'), 'users/officer'), { role: 'super_admin' })));
+  it('non-staff cannot read other users', () => assertFails(getDoc(doc(stranger(), 'users/super'))));
+  it('super_admin can assign roles', () =>
+    assertSucceeds(updateDoc(doc(as('super'), 'users/norole'), { role: 'admissions_officer' })));
 });
 
 describe('CHARACTERIZATION rules: application_workflows — FB-4/ADM-6/PUB-4, flips in Charge Q7', () => {
-  it('BUG: anonymous can plant workflow/activity events', () =>
+  it('BUG: anonymous can still plant workflow/activity events', () =>
     assertSucceeds(addDoc(collection(anon(), 'application_workflows'), { event: 'forged' })));
-  it('workflow docs are immutable', async () => {
-    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'application_workflows/w1'), { a: 1 }));
-    await assertFails(updateDoc(doc(stranger(), 'application_workflows/w1'), { a: 2 }));
+  it('workflow docs are immutable', () => assertFails(updateDoc(doc(as('super'), 'application_workflows/w1'), { a: 2 })));
+});
+
+describe('CHARACTERIZATION rules: adminAuditLogs — FB-5/ADM-3, tightened in Charge Q2', () => {
+  it('staff can write audit logs (actor/timestamp not yet enforced)', () =>
+    assertSucceeds(addDoc(collection(as('officer'), 'adminAuditLogs'), { action: 'x', actorEmail: 'anyone@x.com' })));
+  it('non-staff cannot write audit logs', () => assertFails(addDoc(collection(stranger(), 'adminAuditLogs'), { action: 'x' })));
+  it('audit logs are immutable', async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'adminAuditLogs/l1'), { action: 'x' }));
+    await assertFails(updateDoc(doc(as('super'), 'adminAuditLogs/l1'), { action: 'y' }));
   });
-});
-
-describe('CHARACTERIZATION rules: adminAuditLogs has no rule — FB-5/ADM-3, flips in Charge Q2', () => {
-  it('BUG: even a signed-in user cannot write audit logs (writes silently fail in app)', () =>
-    assertFails(addDoc(collection(stranger(), 'adminAuditLogs'), { action: 'x' })));
-  it('audit logs are unreadable', () => assertFails(getDocs(collection(stranger(), 'adminAuditLogs'))));
-});
-
-describe('CHARACTERIZATION rules: users collection — FB-9/ADM-5, flips in Charge Q1', () => {
-  it('BUG: user can grant themselves a role field', () =>
-    assertSucceeds(setDoc(doc(stranger(), 'users/stranger'), { role: 'super_admin' })));
-  it('STOPGAP: signed-in user cannot read other users', () => assertFails(getDoc(doc(stranger(), 'users/victim'))));
-  it("cannot write someone else's user doc", () => assertFails(setDoc(doc(stranger(), 'users/victim'), { role: 'x' })));
 });
