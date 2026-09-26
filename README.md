@@ -1,20 +1,20 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Institute Of AI — website
 
-# Run and deploy your AI Studio app
+Marketing and admissions site: a static React SPA (Vite) on Vercel, with Firebase Auth + Firestore as the backend.
 
-This contains everything you need to run your app locally.
+## Run locally
 
-View your app in AI Studio: https://ai.studio/apps/f26eec15-970f-4b88-87fa-dcfd5e70a258
+**Prerequisites:** Node.js (and Java + the Firebase CLI for the rules tests).
 
-## Run Locally
+1. Install dependencies: `npm install`
+2. Start the dev server: `npm run dev` → http://localhost:3000
 
-**Prerequisites:**  Node.js
+No environment variables are needed; the Firebase web config lives in `firebase-applet-config.json`.
 
+## Checks
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- `npm run lint` — TypeScript check
+- `npm test` — unit and characterization tests
+- `npm run test:rules` — Firestore security rules tests (local emulator)
+
+See [CLAUDE.md](CLAUDE.md) for architecture notes and [CAVALRY-TRACKER.md](CAVALRY-TRACKER.md) for the security/quality program.
