@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-Marketing + admissions site for "Institute Of AI" — a static React SPA (Vite) hosted on Vercel, with Firebase (Auth + Firestore) as the only backend for applications, enterprise inquiries, contact messages, and the admin console. Originally scaffolded in Google AI Studio (see `metadata.json`). Security/quality work is tracked in [CAVALRY-TRACKER.md](CAVALRY-TRACKER.md).
+Marketing + admissions site for "Institute Of AI" — a static React SPA (Vite) hosted on Vercel, with Firebase (Auth + Firestore) as the only backend for applications, enterprise inquiries, contact messages, and the admin console. Originally scaffolded in Google AI Studio. Security/quality work is tracked in [CAVALRY-TRACKER.md](CAVALRY-TRACKER.md).
 
 ## Commands
 

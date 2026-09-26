@@ -1,6 +1,0 @@
-{
-  "name": "Institute Of AI",
-  "description": "Futuristic precision education & enterprise AI solutions platform for Institute Of AI featuring candidate applications management, bulk operations, CSV reporting, live admissions activity tracking, 3-Day Workshops, 3-Month Flagship Master, and Bespoke Enterprise Corporate Transformation.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
