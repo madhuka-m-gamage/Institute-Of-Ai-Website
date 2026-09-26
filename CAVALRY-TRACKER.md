@@ -14,7 +14,7 @@
 |---|---|---|---|---|---|
 | 1 | recon | done | 2026-09-26 | 2026-09-26 | 5/5 modules audited; 9 decisions accepted; owner signed off; 2 urgency questions (live rules, sign-up) do not block Fortify |
 | 2 | fortify | done | 2026-09-26 | 2026-09-26 | Vitest + rules emulator harness; 26 unit/component + 17 rules characterization tests, all passing; see "Characterization coverage" |
-| 3 | charge | in progress | 2026-09-26 | — | Mode A (one item per PR, wait for merge). PRs target `staging`; `staging` → `main` promotions are separate, owner-confirmed. Item 0: foundation PR (recon/fortify/stopgap/new project) |
+| 3 | charge | in progress | 2026-09-26 | — | Mode A (one item per PR, wait for merge). PRs target `staging`; `staging` → `main` promotions are separate, owner-confirmed. Item 0: foundation PR #2 (`chore/new-firebase-project` → `staging`) open, awaiting merge |
 | 4 | regroup | not started | — | — | |
 | 5 | breach | not started | — | — | |
 
